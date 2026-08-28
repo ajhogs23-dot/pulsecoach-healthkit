@@ -1,20 +1,37 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 
 import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
+import { useAuth } from "@/hooks/use-auth";
+import { loadHealthSnapshot, type HealthSyncSnapshot } from "@/lib/healthkit";
 
 const mint = "#B8F36B";
 const muted = "#A8B3A6";
+const storageKey = (user: { openId?: string; id?: number } | null) => user?.openId ?? (user?.id ? String(user.id) : "local-user");
 type ActivityType = "Strength" | "Cardio" | "Walk";
 
 export default function ActivityScreen() {
+  const { user } = useAuth({ autoFetch: false });
+  const userKey = storageKey(user);
+  const [health, setHealth] = useState<HealthSyncSnapshot | null>(null);
   const [activityType, setActivityType] = useState<ActivityType>("Strength");
   const [minutes, setMinutes] = useState("");
   const [calories, setCalories] = useState("");
   const [feedback, setFeedback] = useState("");
   const [logged, setLogged] = useState(false);
+
+  useFocusEffect(useCallback(() => {
+    let active = true;
+    void loadHealthSnapshot(userKey)
+      .then((snapshot) => { if (active) setHealth(snapshot); })
+      .catch(() => { if (active) setHealth(null); });
+    return () => { active = false; };
+  }, [userKey]));
+
+  const summary = health?.summary;
+  const connected = health?.status === "connected" || Boolean(health?.lastSyncedAt);
 
   const selectActivity = (type: ActivityType) => {
     setActivityType(type);
@@ -56,8 +73,8 @@ export default function ActivityScreen() {
         </Text>
 
         <View style={styles.grid}>
-          <Stat icon="figure.walk" label="Steps" value="—" note="Connect Apple Health" />
-          <Stat icon="flame.fill" label="Calories burned" value="—" note="Waiting for activity" />
+          <Stat icon="figure.walk" label="Steps" value={summary?.steps === undefined ? "—" : Math.round(summary.steps).toLocaleString("en-AU")} note={connected ? "From Apple Health" : "Connect Apple Health"} />
+          <Stat icon="flame.fill" label="Calories burned" value={summary?.activeEnergyKcal === undefined ? "—" : `${Math.round(summary.activeEnergyKcal)} kcal`} note={connected ? "From Apple Health" : "Waiting for activity"} />
         </View>
 
         <View style={styles.card}>
