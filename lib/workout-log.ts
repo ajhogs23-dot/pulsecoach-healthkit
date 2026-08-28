@@ -1,11 +1,19 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { ProfilePreferences } from "@/lib/profile-preferences";
+import type { MuscleGroup } from "@/lib/exercise-library";
 
 export type WorkoutExercise = {
   name: string;
   focus: string;
   sets: number;
   repTarget: string;
+};
+
+export type ActiveWorkoutPlan = {
+  title: string;
+  focus: MuscleGroup;
+  durationMinutes: number;
+  exercises: WorkoutExercise[];
 };
 
 export type WorkoutSetLog = {
@@ -22,6 +30,7 @@ export type CompletedWorkout = {
 };
 
 const storageKey = (userKey: string) => `pulsecoach.workouts.${userKey}`;
+const activePlanKey = (userKey: string) => `pulsecoach.activeWorkout.${userKey}`;
 
 export function getWorkoutPlan(profile: ProfilePreferences): { title: string; durationMinutes: number; exercises: WorkoutExercise[] } {
   const build = profile.goal === "Build strength";
@@ -54,6 +63,20 @@ export function getWorkoutPlan(profile: ProfilePreferences): { title: string; du
     durationMinutes: sets === 2 ? 25 : 35,
     exercises: byEquipment[profile.trainingSetup].map((exercise) => ({ ...exercise, sets, repTarget })),
   };
+}
+
+export async function saveActiveWorkoutPlan(userKey: string, plan: ActiveWorkoutPlan) {
+  await AsyncStorage.setItem(activePlanKey(userKey), JSON.stringify(plan));
+}
+
+export async function loadActiveWorkoutPlan(userKey: string): Promise<ActiveWorkoutPlan | undefined> {
+  const raw = await AsyncStorage.getItem(activePlanKey(userKey));
+  if (!raw) return undefined;
+  try {
+    return JSON.parse(raw) as ActiveWorkoutPlan;
+  } catch {
+    return undefined;
+  }
 }
 
 export async function loadCompletedWorkouts(userKey: string): Promise<CompletedWorkout[]> {
