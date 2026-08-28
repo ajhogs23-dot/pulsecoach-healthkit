@@ -35,8 +35,8 @@ export const appRouter = router({
       .input(z.object({
         namespace: z.string().trim().min(1).max(80),
         payload: z.unknown().refine(
-          (value) => JSON.stringify(value).length <= 500_000,
-          "Stored data must be 500 KB or smaller",
+          (value) => JSON.stringify(value).length <= 5_000_000,
+          "Stored data must be 5 MB or smaller",
         ),
       }))
       .mutation(({ ctx, input }) => db.setUserData(ctx.user.id, input.namespace, input.payload)),
