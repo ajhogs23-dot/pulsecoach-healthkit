@@ -7,6 +7,7 @@ export type WorkoutExercise = {
   focus: string;
   sets: number;
   repTarget: string;
+  tracking?: "reps" | "time";
 };
 
 export type ActiveWorkoutPlan = {
@@ -17,7 +18,8 @@ export type ActiveWorkoutPlan = {
 };
 
 export type WorkoutSetLog = {
-  reps: number;
+  reps?: number;
+  minutes?: number;
   weightKg?: number;
 };
 
