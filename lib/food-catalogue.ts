@@ -6,6 +6,7 @@ export type CatalogueItem = {
   brand: string;
   detail: string;
   source: string;
+  imageUrl?: string;
   nutrition: FoodNutrition;
 };
 
@@ -64,8 +65,10 @@ const productsFromResponse = (data: { hits?: any[]; products?: any[] }): Catalog
   (data.hits ?? data.products ?? []).flatMap((product): CatalogueItem[] => {
     const name = String(product.product_name ?? product.product_name_en ?? "").trim();
     const n = product.nutriments ?? {};
-    const calories100g = num(n["energy-kcal_100g"]);
-    if (!name || calories100g <= 0) return [];
+    const rawCalories = n["energy-kcal_100g"];
+    const hasCalories = typeof rawCalories === "number" && Number.isFinite(rawCalories);
+    const calories100g = num(rawCalories);
+    if (!name || !hasCalories) return [];
     const servingText = String(product.serving_size ?? "").trim();
     const servingGrams = Number.parseFloat(servingText);
     const factor = Number.isFinite(servingGrams) && servingGrams > 0 ? servingGrams / 100 : 1;
@@ -76,6 +79,7 @@ const productsFromResponse = (data: { hits?: any[]; products?: any[] }): Catalog
       brand: String(product.brands ?? "Packaged product").split(",")[0].trim() || "Packaged product",
       detail: `${label} · ${Math.round(calories100g * factor)} kcal`,
       source: "Open Food Facts",
+      imageUrl: String(product.image_front_small_url ?? product.image_small_url ?? product.image_front_url ?? "").trim() || undefined,
       nutrition: nutrition(
         calories100g * factor,
         num(n.proteins_100g) * factor,
@@ -102,7 +106,7 @@ export async function searchOpenFoodFacts(query: string, signal?: AbortSignal): 
         langs: ["en"],
         page: 1,
         page_size: 50,
-        fields: ["code", "product_name", "product_name_en", "brands", "serving_size", "nutriments"],
+        fields: ["code", "product_name", "product_name_en", "brands", "serving_size", "nutriments", "image_front_small_url", "image_small_url", "image_front_url"],
       }),
     });
     if (!response.ok) throw new Error("Primary catalogue unavailable");
@@ -118,7 +122,7 @@ export async function searchOpenFoodFacts(query: string, signal?: AbortSignal): 
     action: "process",
     json: "1",
     page_size: "50",
-    fields: "code,product_name,product_name_en,brands,serving_size,nutriments",
+    fields: "code,product_name,product_name_en,brands,serving_size,nutriments,image_front_small_url,image_small_url,image_front_url",
   });
   const fallback = await fetch(`https://world.openfoodfacts.org/cgi/search.pl?${params.toString()}`, {
     signal,
