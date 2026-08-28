@@ -117,10 +117,10 @@ export default function WorkoutScreen() {
 
       <View style={styles.sectionRow}><Text style={styles.section}>Selected exercises</Text><Text style={styles.available}>{candidates.length} choices</Text></View>
       {selected.map((exercise, index) => <View key={`${exercise.id}-${index}`}>
-        <Pressable style={styles.exercise} onPress={() => setEditingIndex(editingIndex === index ? null : index)}>
+        <Pressable style={styles.exercise} onPress={() => router.push(`/exercise/${exercise.id}` as any)}>
           <View style={styles.num}><Text style={styles.numText}>{index + 1}</Text></View>
           <View style={styles.flex}><Text style={styles.exerciseName}>{exercise.name}</Text><Text style={styles.exerciseMeta}>{toWorkoutExercise(exercise, profile, duration, selected.length).tracking === "time" ? toWorkoutExercise(exercise, profile, duration, selected.length).repTarget : `${toWorkoutExercise(exercise, profile, duration, selected.length).sets} sets · ${toWorkoutExercise(exercise, profile, duration, selected.length).repTarget} reps`}</Text><Text style={styles.exerciseFocus}>{exercise.focus}</Text></View>
-          <Text style={styles.swap}>Change</Text>
+          <View style={styles.exerciseActions}><Text style={styles.guide}>Guide</Text><Pressable onPress={(event) => { event.stopPropagation(); setEditingIndex(editingIndex === index ? null : index); }}><Text style={styles.swap}>Change</Text></Pressable></View>
         </Pressable>
         {editingIndex === index ? <View style={styles.choiceList}><Text style={styles.choiceTitle}>Choose another {focus.toLowerCase()} exercise</Text>{candidates.filter((candidate) => !selected.some((item, selectedIndex) => selectedIndex !== index && item.id === candidate.id)).map((candidate) => <Pressable key={candidate.id} style={styles.choiceRow} onPress={() => replaceExercise(index, candidate)}><Text style={styles.choiceText}>{candidate.name}</Text><Text style={styles.choiceMeta}>{candidate.focus}</Text></Pressable>)}</View> : null}
       </View>)}
@@ -169,6 +169,8 @@ const styles = StyleSheet.create({
   exerciseName: { color: "#F4F7F0", fontSize: 14, fontWeight: "800" },
   exerciseMeta: { color: muted, fontSize: 11, marginTop: 4 },
   exerciseFocus: { color: mint, fontSize: 10, fontWeight: "700", marginTop: 5 },
+  exerciseActions: { alignItems: "flex-end", gap: 8 },
+  guide: { color: "#87C7E8", fontSize: 10, fontWeight: "900" },
   swap: { color: mint, fontSize: 10, fontWeight: "900" },
   choiceList: { backgroundColor: "#202A21", borderRadius: 15, padding: 12, gap: 6, borderWidth: 1, borderColor: "#354536", marginTop: 5 },
   choiceTitle: { color: mint, fontSize: 11, fontWeight: "900", marginBottom: 3 },
