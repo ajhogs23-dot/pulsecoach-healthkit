@@ -27,6 +27,23 @@ export const appRouter = router({
   catalog: router({
     lookup: protectedProcedure.input(z.object({ barcode: z.string().trim().min(4).max(64).optional(), query: z.string().trim().max(160).optional() })).query(({ input }) => resolveProduct(input)),
   }),
+  userData: router({
+    get: protectedProcedure
+      .input(z.object({ namespace: z.string().trim().min(1).max(80) }))
+      .query(({ ctx, input }) => db.getUserData(ctx.user.id, input.namespace)),
+    set: protectedProcedure
+      .input(z.object({
+        namespace: z.string().trim().min(1).max(80),
+        payload: z.unknown().refine(
+          (value) => JSON.stringify(value).length <= 5_000_000,
+          "Stored data must be 5 MB or smaller",
+        ),
+      }))
+      .mutation(({ ctx, input }) => db.setUserData(ctx.user.id, input.namespace, input.payload)),
+    remove: protectedProcedure
+      .input(z.object({ namespace: z.string().trim().min(1).max(80) }))
+      .mutation(({ ctx, input }) => db.deleteUserData(ctx.user.id, input.namespace)),
+  }),
   profile: router({
     get: protectedProcedure.query(({ ctx }) => db.getProfile(ctx.user.id)),
     save: protectedProcedure.input(z.object({ username: z.string().trim().min(3).max(40), avatarUrl: z.string().url().max(500).optional(), unitSystem: z.enum(["metric", "imperial"]).default("metric"), timezone: z.string().max(64).default("Australia/Sydney") })).mutation(({ ctx, input }) => db.upsertProfile(ctx.user.id, input)),

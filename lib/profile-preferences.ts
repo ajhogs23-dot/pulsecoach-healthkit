@@ -1,4 +1,4 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { loadPersistentUserData, savePersistentUserData } from "@/lib/persistent-user-data";
 
 export type ProfileGoal = "Lose fat" | "Build strength" | "Improve fitness" | "Maintain health";
 export type ActivityLevel = "Sedentary" | "Lightly active" | "Moderately active" | "Very active";
@@ -36,18 +36,12 @@ export const DEFAULT_PROFILE_PREFERENCES: ProfilePreferences = {
 const storageKey = (userKey: string) => `pulsecoach.profile.${userKey}`;
 
 export async function loadProfilePreferences(userKey: string): Promise<ProfilePreferences> {
-  const raw = await AsyncStorage.getItem(storageKey(userKey));
-  if (!raw) return DEFAULT_PROFILE_PREFERENCES;
-  try {
-    const parsed = JSON.parse(raw);
-    return { ...DEFAULT_PROFILE_PREFERENCES, ...parsed };
-  } catch {
-    return DEFAULT_PROFILE_PREFERENCES;
-  }
+  const saved = await loadPersistentUserData<Partial<ProfilePreferences>>("profile-preferences", storageKey(userKey), {});
+  return { ...DEFAULT_PROFILE_PREFERENCES, ...saved };
 }
 
 export async function saveProfilePreferences(userKey: string, profile: ProfilePreferences) {
-  await AsyncStorage.setItem(storageKey(userKey), JSON.stringify(profile));
+  await savePersistentUserData("profile-preferences", storageKey(userKey), profile);
 }
 
 const activityFactors: Record<ActivityLevel, number> = {
