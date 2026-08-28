@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { router } from "expo-router";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import {
   ExpoSpeechRecognitionModule,
@@ -8,6 +9,7 @@ import {
 import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { trpc } from "@/lib/trpc";
+import { workoutFocusFromPrompt } from "@/lib/coach-intents";
 
 const mint = "#B8F36B";
 const muted = "#A8B3A6";
@@ -80,6 +82,15 @@ export default function CoachScreen() {
     const message = text.trim();
     if (!message) return;
     setPrompt(message);
+    const workoutFocus = workoutFocusFromPrompt(message);
+    if (workoutFocus) {
+      setReply(`Great—let’s build a ${workoutFocus.toLowerCase()} workout for today.`);
+      setRecognitionMessage("");
+      if (listening) ExpoSpeechRecognitionModule.stop();
+      setListening(false);
+      router.push({ pathname: "/(tabs)/workout", params: { focus: workoutFocus } } as any);
+      return;
+    }
     setReply("Thinking through the most useful next step…");
     setRecognitionMessage("");
     if (listening) ExpoSpeechRecognitionModule.stop();
