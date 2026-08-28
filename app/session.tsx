@@ -6,7 +6,7 @@ import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useAuth } from "@/hooks/use-auth";
 import { DEFAULT_PROFILE_PREFERENCES, loadProfilePreferences, type ProfilePreferences } from "@/lib/profile-preferences";
-import { getWorkoutPlan, saveCompletedWorkout, type WorkoutSetLog } from "@/lib/workout-log";
+import { getWorkoutPlan, loadActiveWorkoutPlan, saveCompletedWorkout, type ActiveWorkoutPlan, type WorkoutSetLog } from "@/lib/workout-log";
 
 const mint = "#B8F36B";
 const muted = "#A8B3A6";
@@ -16,6 +16,7 @@ export default function SessionScreen() {
   const { user } = useAuth({ autoFetch: false });
   const userKey = storageKey(user);
   const [profile, setProfile] = useState<ProfilePreferences>(DEFAULT_PROFILE_PREFERENCES);
+  const [activePlan, setActivePlan] = useState<ActiveWorkoutPlan | undefined>();
   const [exerciseIndex, setExerciseIndex] = useState(0);
   const [logs, setLogs] = useState<WorkoutSetLog[][]>([]);
   const [reps, setReps] = useState("");
@@ -24,10 +25,13 @@ export default function SessionScreen() {
   const [finished, setFinished] = useState(false);
 
   useEffect(() => {
-    void loadProfilePreferences(userKey).then(setProfile);
+    void Promise.all([loadProfilePreferences(userKey), loadActiveWorkoutPlan(userKey)]).then(([savedProfile, savedPlan]) => {
+      setProfile(savedProfile);
+      setActivePlan(savedPlan);
+    });
   }, [userKey]);
 
-  const plan = getWorkoutPlan(profile);
+  const plan = activePlan ?? getWorkoutPlan(profile);
   const exercise = plan.exercises[exerciseIndex];
   const completedForExercise = logs[exerciseIndex] ?? [];
   const nextSetNumber = completedForExercise.length + 1;
