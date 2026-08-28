@@ -8,4 +8,5 @@ CREATE TABLE `user_data` (
   CONSTRAINT `user_data_id` PRIMARY KEY(`id`),
   CONSTRAINT `user_data_owner_namespace_idx` UNIQUE(`userId`,`namespace`)
 );
+--> statement-breakpoint
 CREATE INDEX `user_data_owner_idx` ON `user_data` (`userId`);
