@@ -41,6 +41,13 @@ export async function addManualActivity(
   return next;
 }
 
+export async function removeManualActivity(userKey: string, activityId: string): Promise<ManualActivity[]> {
+  const current = await loadManualActivities(userKey);
+  const next = current.filter((activity) => activity.id !== activityId);
+  await AsyncStorage.setItem(storageKey(userKey), JSON.stringify(next));
+  return next;
+}
+
 export function todayManualActivities(activities: ManualActivity[], reference = new Date()) {
   const start = new Date(reference);
   start.setHours(0, 0, 0, 0);
