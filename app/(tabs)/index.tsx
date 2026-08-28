@@ -6,6 +6,7 @@ import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useAuth } from "@/hooks/use-auth";
 import { loadHealthSnapshot, syncHealthData, type HealthSyncSnapshot } from "@/lib/healthkit";
 import { loadManualActivities, summariseManualActivities, type ManualActivity } from "@/lib/manual-activities";
+import { loadFoodLog, summariseFoodLog, todayFoodLog, type FoodLogEntry } from "@/lib/food-log";
 
 const mint = "#B8F36B";
 const bg = "#111513";
@@ -18,13 +19,20 @@ export default function HomeScreen() {
   const userKey = storageKey(user);
   const [health, setHealth] = useState<HealthSyncSnapshot | null>(null);
   const [manualActivities, setManualActivities] = useState<ManualActivity[]>([]);
+  const [foodEntries, setFoodEntries] = useState<FoodLogEntry[]>([]);
 
   useFocusEffect(useCallback(() => {
     let active = true;
     const refresh = async () => {
       try {
-        const savedActivities = await loadManualActivities(userKey);
-        if (active) setManualActivities(savedActivities);
+        const [savedActivities, savedFood] = await Promise.all([
+          loadManualActivities(userKey),
+          loadFoodLog(userKey),
+        ]);
+        if (active) {
+          setManualActivities(savedActivities);
+          setFoodEntries(savedFood);
+        }
         const cached = await loadHealthSnapshot(userKey);
         if (active) setHealth(cached);
         if (cached.status === "connected" || cached.lastSyncedAt) {
@@ -50,6 +58,8 @@ export default function HomeScreen() {
   const manualSummary = summariseManualActivities(manualActivities);
   const totalActiveEnergy = (summary?.activeEnergyKcal ?? 0) + manualSummary.calories;
   const hasActiveEnergy = summary?.activeEnergyKcal !== undefined || manualSummary.calories > 0;
+  const nutritionSummary = summariseFoodLog(foodEntries);
+  const foodsLoggedToday = todayFoodLog(foodEntries).length;
   const now = new Date();
   const hour = now.getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
@@ -91,7 +101,7 @@ export default function HomeScreen() {
         <View style={styles.metricGrid}>
           <Metric icon="figure.walk" label="Movement" value={summary?.steps === undefined ? "—" : Math.round(summary.steps).toLocaleString("en-AU")} note={connected ? "steps from Apple Health" : "Connect Apple Health"} onPress={() => router.push("/health")} />
           <Metric icon="flame.fill" label="Active energy" value={hasActiveEnergy ? `${Math.round(totalActiveEnergy)} kcal` : "—"} note={manualSummary.calories > 0 ? "Health + manual entries" : connected ? "from Apple Health" : "No data yet"} onPress={() => router.push("/activity" as any)} />
-          <Metric icon="fork.knife" label="Nutrition" value="Start" note="Build your first meal" onPress={() => router.push("/nutrition")} />
+          <Metric icon="fork.knife" label="Nutrition" value={foodsLoggedToday ? `${Math.round(nutritionSummary.calories)} kcal` : "Start"} note={foodsLoggedToday ? `${foodsLoggedToday} food entr${foodsLoggedToday === 1 ? "y" : "ies"} today` : "Build your first meal"} onPress={() => router.push("/nutrition")} />
           <Metric icon="dumbbell.fill" label="Training" value="Ready" note="Plan today’s session" onPress={() => router.push("/workout")} />
         </View>
 
