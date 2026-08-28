@@ -1,4 +1,4 @@
-import { View, type ViewProps } from "react-native";
+import { StyleSheet, View, type ViewProps } from "react-native";
 import { SafeAreaView, type Edge } from "react-native-safe-area-context";
 
 import { cn } from "@/lib/utils";
@@ -54,15 +54,20 @@ export function ScreenContainer({
         "bg-background",
         containerClassName
       )}
+      style={styles.background}
       {...props}
     >
       <SafeAreaView
         edges={edges}
         className={cn("flex-1", safeAreaClassName)}
-        style={style}
+        style={[styles.background, style]}
       >
         <View className={cn("flex-1", className)}>{children}</View>
       </SafeAreaView>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  background: { flex: 1, backgroundColor: "#111513" },
+});
