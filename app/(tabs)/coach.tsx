@@ -46,11 +46,12 @@ export default function CoachScreen() {
     if (!transcript) return;
 
     setPrompt(transcript);
-    setRecognitionMessage(
-      event.isFinal
-        ? "Ready to edit or submit your recognized prompt."
-        : "Hearing you… you can keep speaking or stop when ready.",
-    );
+    if (event.isFinal) {
+      setRecognitionMessage("Voice command recognized.");
+      ask(transcript);
+    } else {
+      setRecognitionMessage("Hearing you… you can keep speaking or stop when ready.");
+    }
   });
 
   useSpeechRecognitionEvent("end", () => {
