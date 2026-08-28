@@ -8,10 +8,10 @@ export type ParsedFoodServing = {
 
 const unitFromText = (value: string): FoodServingUnit => {
   const unit = value.toLowerCase();
-  if (unit === "g" || unit.startsWith("gram")) return "g";
-  if (unit === "ml" || unit.startsWith("millil")) return "mL";
-  if (unit.startsWith("slice")) return "slice";
-  if (["medium", "large", "small", "bar", "can", "tub", "scoop", "tablespoon", "sausage", "rasher"].some((item) => unit.startsWith(item))) return "item";
+  if (/\bml\b|millilitre/.test(unit)) return "mL";
+  if (/\bg\b|\bgrams?\b/.test(unit)) return "g";
+  if (/\bslices?\b/.test(unit)) return "slice";
+  if (/\b(medium|large|small|bars?|cans?|tubs?|scoops?|tablespoons?|sausages?|rashers?|cups?)\b/.test(unit)) return "item";
   return "serving";
 };
 
@@ -21,7 +21,7 @@ export function parseFoodServing(detail: string): ParsedFoodServing {
   const baseQuantity = Number(match[1]);
   return {
     baseQuantity: Number.isFinite(baseQuantity) && baseQuantity > 0 ? baseQuantity : 1,
-    unit: unitFromText(match[2]),
+    unit: unitFromText(detail),
     label: detail,
   };
 }
