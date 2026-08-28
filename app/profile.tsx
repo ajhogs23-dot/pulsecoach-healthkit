@@ -4,7 +4,7 @@ import { router, useFocusEffect } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { useAuth } from "@/hooks/use-auth";
 import { trpc } from "@/lib/trpc";
-import { DEFAULT_PROFILE_PREFERENCES, loadProfilePreferences, saveProfilePreferences, type ProfilePreferences } from "@/lib/profile-preferences";
+import { calculateCalorieEstimate, DEFAULT_PROFILE_PREFERENCES, loadProfilePreferences, saveProfilePreferences, type ActivityLevel, type EstimateSex, type ProfilePreferences, type ProfileGoal } from "@/lib/profile-preferences";
 
 const mint = "#B8F36B";
 const muted = "#A8B3A6";
@@ -14,6 +14,9 @@ export default function ProfileScreen() {
   const { user } = useAuth({ autoFetch: false });
   const userKey = storageKey(user);
   const [profile, setProfile] = useState<ProfilePreferences>(DEFAULT_PROFILE_PREFERENCES);
+  const [age, setAge] = useState("");
+  const [heightCm, setHeightCm] = useState("");
+  const [weightKg, setWeightKg] = useState("");
   const [calorieTarget, setCalorieTarget] = useState("");
   const [savedMessage, setSavedMessage] = useState("");
   const [feedback, setFeedback] = useState("");
@@ -30,6 +33,9 @@ export default function ProfileScreen() {
     void loadProfilePreferences(userKey).then((saved) => {
       if (!active) return;
       setProfile(saved);
+      setAge(saved.age ? String(saved.age) : "");
+      setHeightCm(saved.heightCm ? String(saved.heightCm) : "");
+      setWeightKg(saved.weightKg ? String(saved.weightKg) : "");
       setCalorieTarget(saved.calorieTarget ? String(saved.calorieTarget) : "");
     });
     return () => { active = false; };
@@ -40,17 +46,31 @@ export default function ProfileScreen() {
     setSavedMessage("");
   };
 
+  const previewProfile: ProfilePreferences = {
+    ...profile,
+    age: age.trim() ? Number(age) : undefined,
+    heightCm: heightCm.trim() ? Number(heightCm) : undefined,
+    weightKg: weightKg.trim() ? Number(weightKg) : undefined,
+  };
+  const estimate = calculateCalorieEstimate(previewProfile);
+
   const save = async () => {
     const parsedTarget = calorieTarget.trim() ? Number(calorieTarget) : undefined;
     if (!profile.name.trim()) {
       setSavedMessage("Add your name before saving.");
       return;
     }
+    const bodyValues = [previewProfile.age, previewProfile.heightCm, previewProfile.weightKg];
+    const hasAnyEstimateField = Boolean(profile.sexForEstimate || bodyValues.some((value) => value !== undefined));
+    if (hasAnyEstimateField && (!profile.sexForEstimate || bodyValues.some((value) => value === undefined || !Number.isFinite(value) || value! <= 0))) {
+      setSavedMessage("Complete sex, age, height, and weight with valid numbers for the estimate.");
+      return;
+    }
     if (parsedTarget !== undefined && (!Number.isFinite(parsedTarget) || parsedTarget <= 0)) {
       setSavedMessage("The calorie target must be greater than zero or left blank.");
       return;
     }
-    const next = { ...profile, name: profile.name.trim(), calorieTarget: parsedTarget };
+    const next = { ...previewProfile, name: profile.name.trim(), calorieTarget: parsedTarget };
     await saveProfilePreferences(userKey, next);
     setProfile(next);
     setSavedMessage("Profile saved.");
@@ -68,7 +88,18 @@ export default function ProfileScreen() {
         <TextInput value={profile.name} onChangeText={(value) => update("name", value)} placeholder="Name" placeholderTextColor="#718071" style={styles.input} />
       </View>
 
-      <ChoiceGroup title="Primary goal" items={["Build strength", "Improve fitness", "Maintain health"]} selected={profile.goal} onSelect={(value) => update("goal", value as ProfilePreferences["goal"])} />
+      <ChoiceGroup title="Sex used for calorie estimate" items={["Male", "Female"]} selected={profile.sexForEstimate ?? ""} onSelect={(value) => update("sexForEstimate", value as EstimateSex)} />
+      <View style={styles.group}>
+        <Text style={styles.groupTitle}>Body details</Text>
+        <View style={styles.inputRow}>
+          <TextInput value={age} onChangeText={(value) => { setAge(value); setSavedMessage(""); }} placeholder="Age" placeholderTextColor="#718071" keyboardType="number-pad" style={styles.rowInput} />
+          <TextInput value={heightCm} onChangeText={(value) => { setHeightCm(value); setSavedMessage(""); }} placeholder="Height cm" placeholderTextColor="#718071" keyboardType="decimal-pad" style={styles.rowInput} />
+          <TextInput value={weightKg} onChangeText={(value) => { setWeightKg(value); setSavedMessage(""); }} placeholder="Weight kg" placeholderTextColor="#718071" keyboardType="decimal-pad" style={styles.rowInput} />
+        </View>
+      </View>
+
+      <ChoiceGroup title="Primary goal" items={["Lose fat", "Build strength", "Improve fitness", "Maintain health"]} selected={profile.goal} onSelect={(value) => update("goal", value as ProfileGoal)} />
+      <ChoiceGroup title="Activity level" items={["Sedentary", "Lightly active", "Moderately active", "Very active"]} selected={profile.activityLevel} onSelect={(value) => update("activityLevel", value as ActivityLevel)} />
       <ChoiceGroup title="Food preferences" items={["No preference", "Vegetarian", "High-protein"]} selected={profile.foodPreference} onSelect={(value) => update("foodPreference", value as ProfilePreferences["foodPreference"])} />
       <ChoiceGroup title="Training setup" items={["Dumbbells", "Full gym", "Bodyweight"]} selected={profile.trainingSetup} onSelect={(value) => update("trainingSetup", value as ProfilePreferences["trainingSetup"])} />
       <ChoiceGroup title="Coaching style" items={["Encouraging", "Direct", "Minimal"]} selected={profile.coachingStyle} onSelect={(value) => update("coachingStyle", value as ProfilePreferences["coachingStyle"])} />
@@ -76,8 +107,14 @@ export default function ProfileScreen() {
       <View style={styles.group}>
         <Text style={styles.groupTitle}>Daily calorie target (optional)</Text>
         <TextInput value={calorieTarget} onChangeText={(value) => { setCalorieTarget(value); setSavedMessage(""); }} placeholder="e.g. 2400" placeholderTextColor="#718071" keyboardType="number-pad" style={styles.input} />
-        <Text style={styles.note}>Use a target chosen with appropriate professional guidance. PulseCoach does not calculate a medical diet prescription.</Text>
+        <Text style={styles.note}>Leave blank to use the calculated recommendation, or enter a professional/manual target to override it.</Text>
       </View>
+      {estimate ? <View style={styles.estimateCard}>
+        <Text style={styles.estimateLabel}>ESTIMATED DAILY INTAKE</Text>
+        <Text style={styles.estimateValue}>{estimate.recommendedCalories.toLocaleString("en-AU")} kcal</Text>
+        <Text style={styles.estimateCopy}>Maintenance estimate: {estimate.maintenanceCalories.toLocaleString("en-AU")} kcal · Resting estimate: {estimate.restingCalories.toLocaleString("en-AU")} kcal</Text>
+        <Text style={styles.note}>This is a starting estimate, not a medical prescription. Actual needs vary and should be adjusted using progress, energy, training, and professional advice.</Text>
+      </View> : <Text style={styles.note}>Complete sex, age, height, and weight to calculate an estimate.</Text>}
 
       <Pressable style={({ pressed }) => [styles.saveButton, pressed && styles.pressed]} onPress={() => void save()}><Text style={styles.saveText}>Save profile</Text></Pressable>
       {savedMessage ? <Text style={savedMessage === "Profile saved." ? styles.success : styles.warning}>{savedMessage}</Text> : null}
@@ -108,6 +145,12 @@ const styles = StyleSheet.create({
   subtitle: { color: muted, fontSize: 14, lineHeight: 20 },
   group: { gap: 10, marginTop: 4 },
   groupTitle: { color: "#F4F7F0", fontSize: 16, fontWeight: "800" },
+  inputRow: { flexDirection: "row", gap: 8 },
+  rowInput: { flex: 1, backgroundColor: "#111513", borderRadius: 13, borderWidth: 1, borderColor: "#3B4A3B", padding: 11, color: "#F4F7F0", fontSize: 12 },
+  estimateCard: { backgroundColor: "#202A21", borderRadius: 18, padding: 16, borderWidth: 1, borderColor: "#4D653D", gap: 6 },
+  estimateLabel: { color: mint, fontSize: 10, fontWeight: "900", letterSpacing: 1 },
+  estimateValue: { color: "#F4F7F0", fontSize: 28, fontWeight: "900" },
+  estimateCopy: { color: muted, fontSize: 11, lineHeight: 16 },
   input: { backgroundColor: "#111513", borderRadius: 13, borderWidth: 1, borderColor: "#3B4A3B", padding: 13, color: "#F4F7F0", fontWeight: "700" },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 9 },
   chip: { paddingVertical: 11, paddingHorizontal: 14, borderRadius: 14, backgroundColor: "#1B231D", borderWidth: 1, borderColor: "#2D392E" },
