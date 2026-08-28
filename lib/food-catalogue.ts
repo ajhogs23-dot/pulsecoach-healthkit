@@ -60,25 +60,9 @@ export const commonFoods: CatalogueItem[] = [
 
 const num = (value: unknown) => typeof value === "number" && Number.isFinite(value) ? value : 0;
 
-export async function searchOpenFoodFacts(query: string, signal?: AbortSignal): Promise<CatalogueItem[]> {
-  const term = query.trim();
-  if (term.length < 2) return [];
-  const params = new URLSearchParams({
-    search_terms: term,
-    search_simple: "1",
-    action: "process",
-    json: "1",
-    page_size: "20",
-    fields: "code,product_name,brands,serving_size,nutriments,countries_tags",
-  });
-  const response = await fetch(`https://world.openfoodfacts.org/cgi/search.pl?${params.toString()}`, {
-    signal,
-    headers: { Accept: "application/json" },
-  });
-  if (!response.ok) throw new Error("Food catalogue unavailable");
-  const data = await response.json() as { products?: any[] };
-  return (data.products ?? []).flatMap((product): CatalogueItem[] => {
-    const name = String(product.product_name ?? "").trim();
+const productsFromResponse = (data: { hits?: any[]; products?: any[] }): CatalogueItem[] =>
+  (data.hits ?? data.products ?? []).flatMap((product): CatalogueItem[] => {
+    const name = String(product.product_name ?? product.product_name_en ?? "").trim();
     const n = product.nutriments ?? {};
     const calories100g = num(n["energy-kcal_100g"]);
     if (!name || calories100g <= 0) return [];
@@ -87,9 +71,9 @@ export async function searchOpenFoodFacts(query: string, signal?: AbortSignal): 
     const factor = Number.isFinite(servingGrams) && servingGrams > 0 ? servingGrams / 100 : 1;
     const label = factor === 1 ? "100 g" : servingText;
     return [{
-      id: `off-${product.code ?? name}`,
+      id: `off-${product.code ?? name}-${String(product.brands ?? "")}`,
       name,
-      brand: String(product.brands ?? "Packaged product").split(",")[0].trim(),
+      brand: String(product.brands ?? "Packaged product").split(",")[0].trim() || "Packaged product",
       detail: `${label} · ${Math.round(calories100g * factor)} kcal`,
       source: "Open Food Facts",
       nutrition: nutrition(
@@ -103,4 +87,43 @@ export async function searchOpenFoodFacts(query: string, signal?: AbortSignal): 
       ),
     }];
   });
+
+export async function searchOpenFoodFacts(query: string, signal?: AbortSignal): Promise<CatalogueItem[]> {
+  const term = query.trim();
+  if (term.length < 2) return [];
+
+  try {
+    const response = await fetch("https://search.openfoodfacts.org/search", {
+      method: "POST",
+      signal,
+      headers: { Accept: "application/json", "Content-Type": "application/json" },
+      body: JSON.stringify({
+        q: term,
+        langs: ["en"],
+        page: 1,
+        page_size: 50,
+        fields: ["code", "product_name", "product_name_en", "brands", "serving_size", "nutriments"],
+      }),
+    });
+    if (!response.ok) throw new Error("Primary catalogue unavailable");
+    const results = productsFromResponse(await response.json());
+    if (results.length) return results;
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") throw error;
+  }
+
+  const params = new URLSearchParams({
+    search_terms: term,
+    search_simple: "1",
+    action: "process",
+    json: "1",
+    page_size: "50",
+    fields: "code,product_name,product_name_en,brands,serving_size,nutriments",
+  });
+  const fallback = await fetch(`https://world.openfoodfacts.org/cgi/search.pl?${params.toString()}`, {
+    signal,
+    headers: { Accept: "application/json" },
+  });
+  if (!fallback.ok) throw new Error("Food catalogue unavailable");
+  return productsFromResponse(await fallback.json());
 }
