@@ -35,22 +35,23 @@ export default function SessionScreen() {
   const exercise = plan.exercises[exerciseIndex];
   const completedForExercise = logs[exerciseIndex] ?? [];
   const nextSetNumber = completedForExercise.length + 1;
+  const timedExercise = exercise.tracking === "time";
 
   const completeSet = async () => {
     const repValue = Number(reps);
     const weightValue = weight.trim() ? Number(weight) : undefined;
     if (!Number.isFinite(repValue) || repValue <= 0) {
-      setFeedback("Enter the reps you completed.");
+      setFeedback(timedExercise ? "Enter the minutes you completed." : "Enter the reps you completed.");
       return;
     }
-    if (weightValue !== undefined && (!Number.isFinite(weightValue) || weightValue < 0)) {
+    if (!timedExercise && weightValue !== undefined && (!Number.isFinite(weightValue) || weightValue < 0)) {
       setFeedback("Weight must be zero or greater, or left blank.");
       return;
     }
 
     const nextLogs = logs.map((sets) => [...sets]);
     while (nextLogs.length < plan.exercises.length) nextLogs.push([]);
-    nextLogs[exerciseIndex] = [...nextLogs[exerciseIndex], { reps: repValue, weightKg: weightValue }];
+    nextLogs[exerciseIndex] = [...nextLogs[exerciseIndex], timedExercise ? { minutes: repValue } : { reps: repValue, weightKg: weightValue }];
     setLogs(nextLogs);
     setReps("");
     setWeight("");
@@ -94,16 +95,16 @@ export default function SessionScreen() {
   return <ScreenContainer edges={["top", "bottom", "left", "right"]} className="px-5 pt-4">
     <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
       <Pressable onPress={() => router.back()}><Text style={styles.back}>‹ Exit session</Text></Pressable>
-      <View style={styles.top}><View style={styles.flex}><Text style={styles.eyebrow}>EXERCISE {exerciseIndex + 1} OF {plan.exercises.length}</Text><Text style={styles.title}>{exercise.name}</Text><Text style={styles.meta}>{exercise.repTarget} reps · Set {nextSetNumber} of {exercise.sets}</Text></View><View style={styles.timer}><Text style={styles.timerText}>{completedForExercise.length}</Text><Text style={styles.timerLabel}>SETS</Text></View></View>
+      <View style={styles.top}><View style={styles.flex}><Text style={styles.eyebrow}>EXERCISE {exerciseIndex + 1} OF {plan.exercises.length}</Text><Text style={styles.title}>{exercise.name}</Text><Text style={styles.meta}>{timedExercise ? exercise.repTarget : `${exercise.repTarget} reps · Set ${nextSetNumber} of ${exercise.sets}`}</Text></View><View style={styles.timer}><Text style={styles.timerText}>{completedForExercise.length}</Text><Text style={styles.timerLabel}>SETS</Text></View></View>
 
-      <View style={styles.formCard}><View style={styles.figure}><IconSymbol name="dumbbell.fill" size={42} color={mint} /></View><Text style={styles.formTitle}>Log what you completed.</Text><Text style={styles.formCopy}>Use a controlled range that feels stable. Leave weight blank for bodyweight movements.</Text></View>
+      <View style={styles.formCard}><View style={styles.figure}><IconSymbol name="dumbbell.fill" size={42} color={mint} /></View><Text style={styles.formTitle}>Log what you completed.</Text><Text style={styles.formCopy}>{timedExercise ? "Enter the time you completed. Work at an intensity you can control and recover from safely." : "Use a controlled range that feels stable. Leave weight blank for bodyweight movements."}</Text></View>
 
       <View style={styles.inputs}>
-        <View style={styles.inputGroup}><Text style={styles.inputLabel}>Reps</Text><TextInput value={reps} onChangeText={setReps} placeholder={exercise.repTarget} placeholderTextColor="#718071" keyboardType="number-pad" style={styles.input} /></View>
-        <View style={styles.inputGroup}><Text style={styles.inputLabel}>Weight kg (optional)</Text><TextInput value={weight} onChangeText={setWeight} placeholder="0" placeholderTextColor="#718071" keyboardType="decimal-pad" style={styles.input} /></View>
+        <View style={styles.inputGroup}><Text style={styles.inputLabel}>{timedExercise ? "Minutes completed" : "Reps"}</Text><TextInput value={reps} onChangeText={setReps} placeholder={timedExercise ? exercise.repTarget.replace(" min", "") : exercise.repTarget} placeholderTextColor="#718071" keyboardType="number-pad" style={styles.input} /></View>
+        {!timedExercise ? <View style={styles.inputGroup}><Text style={styles.inputLabel}>Weight kg (optional)</Text><TextInput value={weight} onChangeText={setWeight} placeholder="0" placeholderTextColor="#718071" keyboardType="decimal-pad" style={styles.input} /></View> : null}
       </View>
 
-      {completedForExercise.length ? <View style={styles.loggedSets}><Text style={styles.inputLabel}>COMPLETED SETS</Text>{completedForExercise.map((set, index) => <Text key={index} style={styles.setText}>Set {index + 1}: {set.reps} reps{set.weightKg === undefined ? "" : ` · ${set.weightKg} kg`}</Text>)}</View> : null}
+      {completedForExercise.length ? <View style={styles.loggedSets}><Text style={styles.inputLabel}>COMPLETED SETS</Text>{completedForExercise.map((set, index) => <Text key={index} style={styles.setText}>{set.minutes !== undefined ? `${set.minutes} min completed` : `Set ${index + 1}: ${set.reps} reps${set.weightKg === undefined ? "" : ` · ${set.weightKg} kg`}`}</Text>)}</View> : null}
       {feedback ? <Text style={styles.warning}>{feedback}</Text> : null}
 
       <Pressable style={({ pressed }) => [styles.primary, pressed && styles.pressed]} onPress={() => void completeSet()}><Text style={styles.primaryText}>{nextSetNumber === exercise.sets && exerciseIndex === plan.exercises.length - 1 ? "Finish workout" : nextSetNumber === exercise.sets ? "Complete exercise" : "Complete set"}</Text><IconSymbol name="chevron.right" size={20} color="#111513" /></Pressable>
