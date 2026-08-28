@@ -5,7 +5,7 @@ import { router, useFocusEffect } from "expo-router";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useAuth } from "@/hooks/use-auth";
 import { addFoodLog, loadFoodLog, removeFoodLog, summariseFoodLog, todayFoodLog, type FoodLogEntry, type FoodNutrition, type MealName } from "@/lib/food-log";
-import { DEFAULT_PROFILE_PREFERENCES, loadProfilePreferences, type ProfilePreferences } from "@/lib/profile-preferences";
+import { calculateCalorieEstimate, DEFAULT_PROFILE_PREFERENCES, loadProfilePreferences, type ProfilePreferences } from "@/lib/profile-preferences";
 
 const mint = "#B8F36B";
 const muted = "#A8B3A6";
@@ -63,7 +63,9 @@ export default function NutritionScreen() {
   const todayEntries = todayFoodLog(entries);
   const totals = summariseFoodLog(entries);
   const kilojoules = totals.calories * 4.184;
-  const remainingCalories = profile.calorieTarget === undefined ? undefined : profile.calorieTarget - totals.calories;
+  const calculatedTarget = calculateCalorieEstimate(profile)?.recommendedCalories;
+  const effectiveTarget = profile.calorieTarget ?? calculatedTarget;
+  const remainingCalories = effectiveTarget === undefined ? undefined : effectiveTarget - totals.calories;
 
   const addSuggestion = async (item: CatalogueItem) => {
     const updated = await addFoodLog(userKey, {
