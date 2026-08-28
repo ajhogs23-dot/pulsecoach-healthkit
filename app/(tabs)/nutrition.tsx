@@ -8,6 +8,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { addFoodLog, loadFoodLog, removeFoodLog, summariseFoodLog, todayFoodLog, type FoodLogEntry, type FoodNutrition, type MealName } from "@/lib/food-log";
 import { calculateCalorieEstimate, DEFAULT_PROFILE_PREFERENCES, loadProfilePreferences, type ProfilePreferences } from "@/lib/profile-preferences";
 import { commonFoods, searchOpenFoodFacts, type CatalogueItem } from "@/lib/food-catalogue";
+import { foodAmountLabel, parseFoodServing, servingMultiplier } from "@/lib/food-serving";
 
 const mint = "#B8F36B";
 const muted = "#A8B3A6";
@@ -33,6 +34,9 @@ export default function NutritionScreen() {
   const [remoteFoods, setRemoteFoods] = useState<CatalogueItem[]>([]);
   const [catalogueLoading, setCatalogueLoading] = useState(false);
   const [catalogueMessage, setCatalogueMessage] = useState("");
+  const [selectedFood, setSelectedFood] = useState<CatalogueItem | null>(null);
+  const [servingAmount, setServingAmount] = useState("");
+  const [servingFeedback, setServingFeedback] = useState("");
 
   useFocusEffect(useCallback(() => {
     let active = true;
@@ -91,14 +95,35 @@ export default function NutritionScreen() {
   const effectiveTarget = profile.calorieTarget ?? calculatedTarget;
   const remainingCalories = effectiveTarget === undefined ? undefined : effectiveTarget - totals.calories;
 
-  const addSuggestion = async (item: CatalogueItem) => {
+  const selectSuggestion = (item: CatalogueItem) => {
+    const serving = parseFoodServing(item.detail);
+    setSelectedFood(item);
+    setServingAmount(String(serving.baseQuantity));
+    setServingFeedback("");
+  };
+
+  const addSuggestion = async () => {
+    if (!selectedFood) return;
+    const amount = Number(servingAmount);
+    const serving = parseFoodServing(selectedFood.detail);
+    const servings = servingMultiplier(amount, serving);
+    if (!Number.isFinite(amount) || amount <= 0 || servings <= 0) {
+      setServingFeedback("Enter an amount greater than zero.");
+      return;
+    }
     const updated = await addFoodLog(userKey, {
-      name: item.name,
+      name: selectedFood.name,
       meal: selectedMeal,
-      servings: 1,
-      nutrition: item.nutrition,
+      servings,
+      amount,
+      unit: serving.unit,
+      servingDescription: serving.label,
+      nutrition: selectedFood.nutrition,
     });
     setEntries(updated);
+    setSelectedFood(null);
+    setServingAmount("");
+    setServingFeedback("");
     setQuery("");
     setRemoteFoods([]);
   };
@@ -165,7 +190,21 @@ export default function NutritionScreen() {
         <Pressable style={styles.recipe} onPress={() => void saveManualFood()}><Text style={styles.recipeText}>Save custom food</Text></Pressable>
       </View> : null}
 
-      <View style={styles.suggestions}><Text style={styles.suggestionTitle}>{query.length ? "Suggested matches" : "Quick add"}</Text>{catalogueLoading ? <Text style={styles.searchStatus}>Searching the full supermarket catalogue…</Text> : null}{catalogueMessage ? <Text style={styles.empty}>{catalogueMessage}</Text> : null}{suggestions.length ? suggestions.map((item) => <Pressable key={item.id} style={styles.suggestion} onPress={() => void addSuggestion(item)}>{item.imageUrl ? <Image source={{ uri: item.imageUrl }} style={styles.foodImage} contentFit="contain" transition={150} /> : <View style={styles.foodIcon}><Text style={styles.foodMark}>{item.name[0]}</Text></View>}<View style={{ flex: 1 }}><Text style={styles.foodName}>{item.name}</Text><Text style={styles.foodMeta}>{item.brand} · {item.detail}</Text><Text style={styles.foodSource}>{item.source}</Text></View><Text style={styles.add}>Add</Text></Pressable>) : <Text style={styles.empty}>No match yet. Keep typing, scan the barcode, or add it as a custom food.</Text>}</View>
+      <View style={styles.suggestions}><Text style={styles.suggestionTitle}>{query.length ? "Suggested matches" : "Quick add"}</Text>{catalogueLoading ? <Text style={styles.searchStatus}>Searching the full supermarket catalogue…</Text> : null}{catalogueMessage ? <Text style={styles.empty}>{catalogueMessage}</Text> : null}{suggestions.length ? suggestions.map((item) => <Pressable key={item.id} style={styles.suggestion} onPress={() => selectSuggestion(item)}>{item.imageUrl ? <Image source={{ uri: item.imageUrl }} style={styles.foodImage} contentFit="contain" transition={150} /> : <View style={styles.foodIcon}><Text style={styles.foodMark}>{item.name[0]}</Text></View>}<View style={{ flex: 1 }}><Text style={styles.foodName}>{item.name}</Text><Text style={styles.foodMeta}>{item.brand} · {item.detail}</Text><Text style={styles.foodSource}>{item.source}</Text></View><Text style={styles.add}>Add</Text></Pressable>) : <Text style={styles.empty}>No match yet. Keep typing, scan the barcode, or add it as a custom food.</Text>}</View>
+
+      {selectedFood ? <View style={styles.manualCard}>
+        <Text style={styles.suggestionTitle}>Add {selectedFood.name} to {selectedMeal}</Text>
+        <Text style={styles.foodMeta}>Nutrition is listed for {selectedFood.detail}. Enter the amount you actually had.</Text>
+        <View style={styles.manualRow}>
+          <TextInput value={servingAmount} onChangeText={setServingAmount} placeholder="Amount" placeholderTextColor="#718071" keyboardType="decimal-pad" style={styles.manualInputHalf} />
+          <View style={[styles.manualInputHalf, { justifyContent: "center" }]}><Text style={styles.foodName}>{parseFoodServing(selectedFood.detail).unit}</Text></View>
+        </View>
+        {servingFeedback ? <Text style={styles.foodSource}>{servingFeedback}</Text> : null}
+        <View style={styles.entryRow}>
+          <Pressable style={styles.entry} onPress={() => { setSelectedFood(null); setServingFeedback(""); }}><Text style={styles.entryText}>Cancel</Text></Pressable>
+          <Pressable style={styles.recipe} onPress={() => void addSuggestion()}><Text style={styles.recipeText}>Add food</Text></Pressable>
+        </View>
+      </View> : null}
 
       <View style={styles.summary}><View><Text style={styles.summaryEyebrow}>TODAY’S TOTALS</Text><Text style={styles.summaryTitle}>{Math.round(totals.calories)} kcal <Text style={styles.kj}>· {Math.round(kilojoules)} kJ</Text></Text><Text style={styles.summaryCopy}>{remainingCalories === undefined ? `${todayEntries.length} food entr${todayEntries.length === 1 ? "y" : "ies"} logged today` : `${Math.round(Math.abs(remainingCalories))} kcal ${remainingCalories >= 0 ? "remaining" : "over target"} · ${todayEntries.length} entries`}</Text></View><View style={styles.ring}><Text style={styles.ringText}>{Math.round(totals.protein)}g</Text><Text style={styles.ringLabel}>PROTEIN</Text></View></View>
       <View style={styles.metricRow}>{[["Carbs", `${Math.round(totals.carbohydrates)} g`], ["Fat", `${Math.round(totals.fat)} g`], ["Fibre", `${Math.round(totals.fibre)} g`], ["Sugar", `${Math.round(totals.sugars)} g`], ["Sodium", `${Math.round(totals.sodium)} mg`]].map(([label, value]) => <View key={label} style={styles.metric}><Text style={styles.metricLabel}>{label}</Text><Text style={styles.metricValue}>{value}</Text></View>)}</View>
@@ -173,7 +212,7 @@ export default function NutritionScreen() {
       {mealNames.map((meal) => {
         const mealEntries = todayEntries.filter((entry) => entry.meal === meal);
         const mealCalories = mealEntries.reduce((total, entry) => total + entry.nutrition.calories * entry.servings, 0);
-        return <View key={meal} style={styles.meal}><View style={styles.mealTop}><Text style={styles.mealTitle}>{meal}</Text><Text style={styles.mealTotal}>{Math.round(mealCalories)} kcal</Text></View>{mealEntries.length ? mealEntries.map((entry) => <View key={entry.id} style={styles.logged}><View style={{ flex: 1 }}><Text style={styles.loggedName}>{entry.name} · {entry.servings} serve</Text><Text style={styles.foodSource}>{Math.round(entry.nutrition.protein * entry.servings)} g protein</Text></View><Pressable onPress={() => void deleteEntry(entry.id)}><Text style={styles.loggedAction}>Delete</Text></Pressable></View>) : <Text style={styles.emptyMeal}>Nothing logged yet.</Text>}<Pressable style={styles.addMeal} onPress={() => setSelectedMeal(meal)}><Text style={styles.addMealText}>+ Add food to {meal.toLowerCase()}</Text></Pressable></View>;
+        return <View key={meal} style={styles.meal}><View style={styles.mealTop}><Text style={styles.mealTitle}>{meal}</Text><Text style={styles.mealTotal}>{Math.round(mealCalories)} kcal</Text></View>{mealEntries.length ? mealEntries.map((entry) => <View key={entry.id} style={styles.logged}><View style={{ flex: 1 }}><Text style={styles.loggedName}>{entry.name} · {foodAmountLabel(entry.amount, entry.unit, entry.servings)}</Text><Text style={styles.foodSource}>{Math.round(entry.nutrition.protein * entry.servings)} g protein</Text></View><Pressable onPress={() => void deleteEntry(entry.id)}><Text style={styles.loggedAction}>Delete</Text></Pressable></View>) : <Text style={styles.emptyMeal}>Nothing logged yet.</Text>}<Pressable style={styles.addMeal} onPress={() => setSelectedMeal(meal)}><Text style={styles.addMealText}>+ Add food to {meal.toLowerCase()}</Text></Pressable></View>;
       })}
 
       <Pressable style={styles.recipe} onPress={() => router.push("/recipes" as any)}><IconSymbol name="fork.knife" size={18} color="#111513" /><Text style={styles.recipeText}>Build a meal from ingredients at home</Text></Pressable>
