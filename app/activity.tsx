@@ -6,6 +6,7 @@ import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useAuth } from "@/hooks/use-auth";
 import { loadHealthSnapshot, syncHealthData, type HealthSyncSnapshot } from "@/lib/healthkit";
+import { addManualActivity, loadManualActivities, summariseManualActivities, type ManualActivity } from "@/lib/manual-activities";
 
 const mint = "#B8F36B";
 const muted = "#A8B3A6";
@@ -16,6 +17,7 @@ export default function ActivityScreen() {
   const { user } = useAuth({ autoFetch: false });
   const userKey = storageKey(user);
   const [health, setHealth] = useState<HealthSyncSnapshot | null>(null);
+  const [manualActivities, setManualActivities] = useState<ManualActivity[]>([]);
   const [activityType, setActivityType] = useState<ActivityType>("Strength");
   const [minutes, setMinutes] = useState("");
   const [calories, setCalories] = useState("");
@@ -26,6 +28,8 @@ export default function ActivityScreen() {
     let active = true;
     const refresh = async () => {
       try {
+        const savedActivities = await loadManualActivities(userKey);
+        if (active) setManualActivities(savedActivities);
         const cached = await loadHealthSnapshot(userKey);
         if (active) setHealth(cached);
         if (cached.status === "connected" || cached.lastSyncedAt) {
@@ -48,6 +52,9 @@ export default function ActivityScreen() {
 
   const summary = health?.summary;
   const connected = health?.status === "connected" || Boolean(health?.lastSyncedAt);
+  const manualSummary = summariseManualActivities(manualActivities);
+  const totalCalories = (summary?.activeEnergyKcal ?? 0) + manualSummary.calories;
+  const hasCalories = summary?.activeEnergyKcal !== undefined || manualSummary.calories > 0;
 
   const selectActivity = (type: ActivityType) => {
     setActivityType(type);
@@ -55,7 +62,7 @@ export default function ActivityScreen() {
     setFeedback(`${type} selected. Add the time you completed, then save it to today’s activity.`);
   };
 
-  const saveActivity = () => {
+  const saveActivity = async () => {
     const duration = Number(minutes);
     if (!Number.isFinite(duration) || duration <= 0) {
       setLogged(false);
@@ -70,7 +77,15 @@ export default function ActivityScreen() {
       return;
     }
 
+    const updated = await addManualActivity(userKey, {
+      type: activityType,
+      minutes: duration,
+      calories: calorieValue,
+    });
+    setManualActivities(updated);
     setLogged(true);
+    setMinutes("");
+    setCalories("");
     setFeedback(
       `${activityType} saved for today: ${duration} minute${duration === 1 ? "" : "s"}${calorieValue === undefined ? "" : ` · ${calorieValue} calories noted`}.`,
     );
@@ -90,7 +105,7 @@ export default function ActivityScreen() {
 
         <View style={styles.grid}>
           <Stat icon="figure.walk" label="Steps" value={summary?.steps === undefined ? "—" : Math.round(summary.steps).toLocaleString("en-AU")} note={connected ? "From Apple Health" : "Connect Apple Health"} />
-          <Stat icon="flame.fill" label="Calories burned" value={summary?.activeEnergyKcal === undefined ? "—" : `${Math.round(summary.activeEnergyKcal)} kcal`} note={connected ? "From Apple Health" : "Waiting for activity"} />
+          <Stat icon="flame.fill" label="Calories burned" value={hasCalories ? `${Math.round(totalCalories)} kcal` : "—"} note={manualSummary.calories > 0 ? "Apple Health + manual entries" : connected ? "From Apple Health" : "Waiting for activity"} />
         </View>
 
         <View style={styles.card}>
@@ -155,7 +170,7 @@ export default function ActivityScreen() {
 
           <Pressable
             style={({ pressed }) => [styles.button, pressed && styles.pressed]}
-            onPress={saveActivity}
+            onPress={() => void saveActivity()}
             accessibilityRole="button"
             accessibilityLabel={`Save ${activityType} activity`}
           >
@@ -163,6 +178,8 @@ export default function ActivityScreen() {
           </Pressable>
           {feedback ? <Text style={logged ? styles.success : styles.feedback}>{feedback}</Text> : null}
         </View>
+
+        {manualSummary.entries.length > 0 ? <View style={styles.info}><Text style={styles.infoTitle}>Today’s manual activity</Text><Text style={styles.infoCopy}>{manualSummary.entries.length} entr{manualSummary.entries.length === 1 ? "y" : "ies"} · {Math.round(manualSummary.minutes)} min{manualSummary.calories > 0 ? ` · ${Math.round(manualSummary.calories)} kcal` : ""}</Text></View> : null}
 
         <View style={styles.info}>
           <Text style={styles.infoTitle}>No data is a valid state</Text>
