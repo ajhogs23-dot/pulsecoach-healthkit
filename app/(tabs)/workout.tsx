@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { IconSymbol } from "@/components/ui/icon-symbol";
@@ -7,6 +7,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { DEFAULT_PROFILE_PREFERENCES, loadProfilePreferences, type ProfilePreferences } from "@/lib/profile-preferences";
 import { exercisesFor, type ExerciseLibraryItem, type MuscleGroup } from "@/lib/exercise-library";
 import { loadCompletedWorkouts, saveActiveWorkoutPlan, type CompletedWorkout, type WorkoutExercise } from "@/lib/workout-log";
+import { durationForReadiness, orderExercisesForRecovery, setCountForReadiness, type Readiness } from "@/lib/workout-personalisation";
 
 const mint = "#B8F36B";
 const muted = "#A8B3A6";
@@ -14,8 +15,8 @@ const muscleGroups: MuscleGroup[] = ["Full body", "Chest", "Back", "Shoulders", 
 const durations = [20, 30, 45, 60];
 const storageKey = (user: { openId?: string; id?: number } | null) => user?.openId ?? (user?.id ? String(user.id) : "local-user");
 
-function pickExercises(focus: MuscleGroup, duration: number, profile: ProfilePreferences, offset = 0) {
-  const available = exercisesFor(focus, profile.trainingSetup);
+function pickExercises(focus: MuscleGroup, duration: number, profile: ProfilePreferences, history: CompletedWorkout[], limitation = "", offset = 0) {
+  const available = orderExercisesForRecovery(exercisesFor(focus, profile.trainingSetup), history, limitation);
   const count = Math.min(available.length, focus === "Cardio" ? Math.max(1, Math.round(duration / 15)) : Math.max(3, Math.round(duration / 8)));
   if (focus !== "Full body") return Array.from({ length: count }, (_, index) => available[(index + offset) % available.length]);
 
@@ -32,7 +33,7 @@ function pickExercises(focus: MuscleGroup, duration: number, profile: ProfilePre
   return selected;
 }
 
-function toWorkoutExercise(item: ExerciseLibraryItem, profile: ProfilePreferences, duration: number, exerciseCount: number): WorkoutExercise {
+function toWorkoutExercise(item: ExerciseLibraryItem, profile: ProfilePreferences, duration: number, exerciseCount: number, readiness: Readiness): WorkoutExercise {
   if (item.muscleGroup === "Cardio") {
     const minutes = Math.max(5, Math.floor(duration / Math.max(1, exerciseCount)));
     return { name: item.name, focus: item.focus, sets: 1, repTarget: `${minutes} min`, tracking: "time" };
@@ -40,7 +41,7 @@ function toWorkoutExercise(item: ExerciseLibraryItem, profile: ProfilePreference
   return {
     name: item.name,
     focus: item.focus,
-    sets: profile.goal === "Maintain health" ? 2 : 3,
+    sets: profile.goal === "Maintain health" ? 2 : setCountForReadiness(profile.goal, readiness),
     repTarget: profile.goal === "Build strength" ? "8–10" : "10–12",
     tracking: "reps",
   };
@@ -57,6 +58,8 @@ export default function WorkoutScreen() {
   const [selected, setSelected] = useState<ExerciseLibraryItem[]>([]);
   const [focusOpen, setFocusOpen] = useState(false);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [readiness, setReadiness] = useState<Readiness>("Ready");
+  const [limitation, setLimitation] = useState("");
 
   useFocusEffect(useCallback(() => {
     let active = true;
@@ -68,7 +71,7 @@ export default function WorkoutScreen() {
       setProfile(savedProfile);
       setHistory(savedHistory);
       setFocus(initialFocus);
-      setSelected(pickExercises(initialFocus, 30, savedProfile, savedHistory.length));
+      setSelected(pickExercises(initialFocus, 30, savedProfile, savedHistory, "", savedHistory.length));
     });
     return () => { active = false; };
   }, [requestedFocus, userKey]));
@@ -77,13 +80,23 @@ export default function WorkoutScreen() {
     setFocus(nextFocus);
     setFocusOpen(false);
     setEditingIndex(null);
-    setSelected(pickExercises(nextFocus, duration, profile, history.length));
+    setSelected(pickExercises(nextFocus, durationForReadiness(duration, readiness), profile, history, limitation, history.length));
   };
 
   const chooseDuration = (minutes: number) => {
     setDuration(minutes);
     setEditingIndex(null);
-    setSelected(pickExercises(focus, minutes, profile, history.length));
+    setSelected(pickExercises(focus, durationForReadiness(minutes, readiness), profile, history, limitation, history.length));
+  };
+
+  const updateReadiness = (value: Readiness) => {
+    setReadiness(value);
+    setSelected(pickExercises(focus, durationForReadiness(duration, value), profile, history, limitation, history.length));
+  };
+
+  const updateLimitation = (value: string) => {
+    setLimitation(value);
+    setSelected(pickExercises(focus, durationForReadiness(duration, readiness), profile, history, value, history.length));
   };
 
   const replaceExercise = (index: number, replacement: ExerciseLibraryItem) => {
@@ -92,17 +105,19 @@ export default function WorkoutScreen() {
   };
 
   const startSession = async () => {
-    const exercises = selected.map((item) => toWorkoutExercise(item, profile, duration, selected.length));
+    const recommendedDuration = durationForReadiness(duration, readiness);
+    const exercises = selected.map((item) => toWorkoutExercise(item, profile, recommendedDuration, selected.length, readiness));
     await saveActiveWorkoutPlan(userKey, {
       title: focus === "Full body" ? "Full-body workout" : `${focus} workout`,
       focus,
-      durationMinutes: duration,
+      durationMinutes: recommendedDuration,
       exercises,
     });
     router.push("/session");
   };
 
-  const candidates = exercisesFor(focus, profile.trainingSetup);
+  const candidates = orderExercisesForRecovery(exercisesFor(focus, profile.trainingSetup), history, limitation);
+  const recommendedDuration = durationForReadiness(duration, readiness);
   const latest = [...history].reverse().slice(0, 3);
 
   return <ScreenContainer className="px-5 pt-4">
@@ -118,13 +133,19 @@ export default function WorkoutScreen() {
       <Text style={styles.label}>HOW LONG DO YOU WANT TO TRAIN?</Text>
       <View style={styles.durationRow}>{durations.map((minutes) => <Pressable key={minutes} onPress={() => chooseDuration(minutes)} style={[styles.duration, duration === minutes && styles.durationActive]}><Text style={[styles.durationText, duration === minutes && styles.durationTextActive]}>{minutes} min</Text></Pressable>)}</View>
 
-      <View style={styles.summary}><View><Text style={styles.summaryLabel}>YOUR SESSION</Text><Text style={styles.summaryTitle}>{focus === "Full body" ? "Full-body workout" : `${focus} workout`}</Text><Text style={styles.summaryMeta}>{duration} min · {selected.length} exercises · {profile.trainingSetup}</Text></View><View style={styles.circle}><Text style={styles.circleText}>{duration}</Text><Text style={styles.circleLabel}>MIN</Text></View></View>
+      <Text style={styles.label}>HOW READY DO YOU FEEL?</Text>
+      <View style={styles.durationRow}>{(["Low", "Okay", "Ready"] as Readiness[]).map((value) => <Pressable key={value} onPress={() => updateReadiness(value)} style={[styles.duration, readiness === value && styles.durationActive]}><Text style={[styles.durationText, readiness === value && styles.durationTextActive]}>{value}</Text></Pressable>)}</View>
+      <Text style={styles.label}>PAIN, SORENESS OR LIMITATION</Text>
+      <TextInput value={limitation} onChangeText={updateLimitation} placeholder="Optional — e.g. sore shoulder" placeholderTextColor="#718071" style={styles.limitationInput} />
+      {limitation && selected.length === 0 ? <Text style={styles.safety}>No suitable exercises remain for this focus. Change focus or remove the limitation after checking what is safe.</Text> : null}
+
+      <View style={styles.summary}><View><Text style={styles.summaryLabel}>YOUR SESSION</Text><Text style={styles.summaryTitle}>{focus === "Full body" ? "Full-body workout" : `${focus} workout`}</Text><Text style={styles.summaryMeta}>{recommendedDuration} min · {selected.length} exercises · {profile.trainingSetup} · {readiness}</Text></View><View style={styles.circle}><Text style={styles.circleText}>{recommendedDuration}</Text><Text style={styles.circleLabel}>MIN</Text></View></View>
 
       <View style={styles.sectionRow}><Text style={styles.section}>Selected exercises</Text><Text style={styles.available}>{candidates.length} choices</Text></View>
       {selected.map((exercise, index) => <View key={`${exercise.id}-${index}`}>
         <Pressable style={styles.exercise} onPress={() => router.push(`/exercise/${exercise.id}` as any)}>
           <View style={styles.num}><Text style={styles.numText}>{index + 1}</Text></View>
-          <View style={styles.flex}><Text style={styles.exerciseName}>{exercise.name}</Text><Text style={styles.exerciseMeta}>{toWorkoutExercise(exercise, profile, duration, selected.length).tracking === "time" ? toWorkoutExercise(exercise, profile, duration, selected.length).repTarget : `${toWorkoutExercise(exercise, profile, duration, selected.length).sets} sets · ${toWorkoutExercise(exercise, profile, duration, selected.length).repTarget} reps`}</Text><Text style={styles.exerciseFocus}>{exercise.focus}</Text></View>
+          <View style={styles.flex}><Text style={styles.exerciseName}>{exercise.name}</Text><Text style={styles.exerciseMeta}>{toWorkoutExercise(exercise, profile, recommendedDuration, selected.length, readiness).tracking === "time" ? toWorkoutExercise(exercise, profile, recommendedDuration, selected.length, readiness).repTarget : `${toWorkoutExercise(exercise, profile, recommendedDuration, selected.length, readiness).sets} sets · ${toWorkoutExercise(exercise, profile, recommendedDuration, selected.length, readiness).repTarget} reps`}</Text><Text style={styles.exerciseFocus}>{exercise.focus}</Text></View>
           <View style={styles.exerciseActions}><Text style={styles.guide}>Guide</Text><Pressable onPress={(event) => { event.stopPropagation(); setEditingIndex(editingIndex === index ? null : index); }}><Text style={styles.swap}>Change</Text></Pressable></View>
         </Pressable>
         {editingIndex === index ? <View style={styles.choiceList}><Text style={styles.choiceTitle}>Choose another {focus.toLowerCase()} exercise</Text>{candidates.filter((candidate) => !selected.some((item, selectedIndex) => selectedIndex !== index && item.id === candidate.id)).map((candidate) => <Pressable key={candidate.id} style={styles.choiceRow} onPress={() => replaceExercise(index, candidate)}><Text style={styles.choiceText}>{candidate.name}</Text><Text style={styles.choiceMeta}>{candidate.focus}</Text></Pressable>)}</View> : null}
@@ -146,6 +167,7 @@ const styles = StyleSheet.create({
   title: { color: "#F4F7F0", fontSize: 30, fontWeight: "800", letterSpacing: -0.7 },
   subtitle: { color: muted, fontSize: 14, lineHeight: 20 },
   label: { color: muted, fontSize: 10, fontWeight: "900", letterSpacing: 1, marginTop: 4 },
+  limitationInput: { backgroundColor: "#111513", borderRadius: 13, borderWidth: 1, borderColor: "#3B4A3B", padding: 13, color: "#F4F7F0" }, safety: { color: "#F7CF77", fontSize: 11, lineHeight: 16 },
   dropdown: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: "#1B231D", borderRadius: 15, padding: 15, borderWidth: 1, borderColor: mint },
   dropdownText: { color: "#F4F7F0", fontSize: 16, fontWeight: "900" },
   dropdownMenu: { backgroundColor: "#1B231D", borderRadius: 15, padding: 8, borderWidth: 1, borderColor: "#354536", gap: 3 },
