@@ -1,7 +1,7 @@
 import { useCallback, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
-import { router, useFocusEffect } from "expo-router";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useAuth } from "@/hooks/use-auth";
 import { DEFAULT_PROFILE_PREFERENCES, loadProfilePreferences, type ProfilePreferences } from "@/lib/profile-preferences";
@@ -47,6 +47,7 @@ function toWorkoutExercise(item: ExerciseLibraryItem, profile: ProfilePreference
 }
 
 export default function WorkoutScreen() {
+  const { focus: requestedFocus } = useLocalSearchParams<{ focus?: string }>();
   const { user } = useAuth({ autoFetch: false });
   const userKey = storageKey(user);
   const [profile, setProfile] = useState<ProfilePreferences>(DEFAULT_PROFILE_PREFERENCES);
@@ -61,12 +62,16 @@ export default function WorkoutScreen() {
     let active = true;
     void Promise.all([loadProfilePreferences(userKey), loadCompletedWorkouts(userKey)]).then(([savedProfile, savedHistory]) => {
       if (!active) return;
+      const initialFocus = typeof requestedFocus === "string" && muscleGroups.includes(requestedFocus as MuscleGroup)
+        ? requestedFocus as MuscleGroup
+        : "Full body";
       setProfile(savedProfile);
       setHistory(savedHistory);
-      setSelected(pickExercises("Full body", 30, savedProfile, savedHistory.length));
+      setFocus(initialFocus);
+      setSelected(pickExercises(initialFocus, 30, savedProfile, savedHistory.length));
     });
     return () => { active = false; };
-  }, [userKey]));
+  }, [requestedFocus, userKey]));
 
   const chooseFocus = (nextFocus: MuscleGroup) => {
     setFocus(nextFocus);
