@@ -1,4 +1,4 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { loadPersistentUserData, savePersistentUserData } from "@/lib/persistent-user-data";
 import type { ProfilePreferences } from "@/lib/profile-preferences";
 import type { MuscleGroup } from "@/lib/exercise-library";
 
@@ -68,28 +68,15 @@ export function getWorkoutPlan(profile: ProfilePreferences): { title: string; du
 }
 
 export async function saveActiveWorkoutPlan(userKey: string, plan: ActiveWorkoutPlan) {
-  await AsyncStorage.setItem(activePlanKey(userKey), JSON.stringify(plan));
+  await savePersistentUserData("active-workout", activePlanKey(userKey), plan);
 }
 
 export async function loadActiveWorkoutPlan(userKey: string): Promise<ActiveWorkoutPlan | undefined> {
-  const raw = await AsyncStorage.getItem(activePlanKey(userKey));
-  if (!raw) return undefined;
-  try {
-    return JSON.parse(raw) as ActiveWorkoutPlan;
-  } catch {
-    return undefined;
-  }
+  return loadPersistentUserData<ActiveWorkoutPlan | undefined>("active-workout", activePlanKey(userKey), undefined);
 }
 
 export async function loadCompletedWorkouts(userKey: string): Promise<CompletedWorkout[]> {
-  const raw = await AsyncStorage.getItem(storageKey(userKey));
-  if (!raw) return [];
-  try {
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
+  return loadPersistentUserData<CompletedWorkout[]>("completed-workouts", storageKey(userKey), []);
 }
 
 export async function saveCompletedWorkout(userKey: string, workout: Omit<CompletedWorkout, "id" | "completedAt">) {
@@ -100,7 +87,7 @@ export async function saveCompletedWorkout(userKey: string, workout: Omit<Comple
     completedAt: new Date().toISOString(),
   };
   const next = [...current, completed];
-  await AsyncStorage.setItem(storageKey(userKey), JSON.stringify(next));
+  await savePersistentUserData("completed-workouts", storageKey(userKey), next);
   return next;
 }
 
