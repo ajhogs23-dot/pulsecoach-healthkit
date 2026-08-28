@@ -1,10 +1,100 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { IconSymbol } from "@/components/ui/icon-symbol";
-const mint = "#B8F36B"; const muted = "#A8B3A6";
-const exercises = [{ name: "Dumbbell goblet squat", meta: "3 sets · 8–10 reps · 90 sec rest", focus: "Legs + core" }, { name: "Single-arm row", meta: "3 sets · 10 reps each side · 60 sec rest", focus: "Back" }, { name: "Dumbbell floor press", meta: "3 sets · 8–12 reps · 90 sec rest", focus: "Chest" }, { name: "Suitcase carry", meta: "3 rounds · 30 sec each side", focus: "Core + grip" }];
-export default function WorkoutScreen() { const [started, setStarted] = useState(false); return <ScreenContainer className="px-5 pt-4"><ScrollView contentContainerStyle={styles.content}><Text style={styles.eyebrow}>WORKOUT</Text><Text style={styles.title}>Train with intention.</Text><Text style={styles.subtitle}>A compact full-body session for a day when you want strength without overcomplicating it.</Text><Pressable style={styles.choose} onPress={() => router.push("/choose-workout" as any)}><Text style={styles.chooseEyebrow}>PERSONALISE TODAY</Text><Text style={styles.chooseText}>Choose today’s workout</Text><Text style={styles.chooseCopy}>Pick a focus, time, equipment, energy, and any limitation.</Text></Pressable><Pressable style={styles.schedule} onPress={() => router.push("/schedule" as any)}><IconSymbol name="calendar" size={18} color={mint} /><Text style={styles.scheduleText}>Set my weekly training plan</Text></Pressable><Pressable style={styles.limits} onPress={() => router.push("/injuries" as any)}><IconSymbol name="cross.case.fill" size={18} color="#F7CF77" /><Text style={styles.limitsText}>Add an injury or movement limit</Text></Pressable><Pressable style={styles.scan} onPress={() => router.push("/machine" as any)}><IconSymbol name="camera.fill" size={18} color={mint} /><Text style={styles.scanText}>Scan a machine for guidance</Text></Pressable><View style={styles.map}><View style={styles.mapTop}><Text style={styles.mapTitle}>Today’s movement map</Text><Text style={styles.mapPrivacy}>Private</Text></View><Text style={styles.mapCopy}>Your day’s route breadcrumbs appear here when location access is enabled. A workout you start below is saved separately from the all-day map.</Text><Pressable style={styles.mapLink} onPress={() => router.push("/wellness" as any)}><Text style={styles.mapLinkText}>Review map and activity details ›</Text></Pressable></View><Text style={styles.section}>Start an activity workout</Text><View style={styles.activityRow}>{["Run", "Walk", "Cycle"].map((type) => <Pressable key={type} style={styles.activity} onPress={() => router.push("/activity" as any)}><Text style={styles.activityMark}>{type[0]}</Text><Text style={styles.activityText}>{type}</Text></Pressable>)}</View><View style={styles.mobility}><View style={styles.mobilityIcon}><IconSymbol name="figure.flexibility" size={20} color={mint} /></View><View style={{ flex: 1 }}><Text style={styles.mobilityTitle}>Warm up + cool down</Text><Text style={styles.mobilityCopy}>Before: 5 minutes of easy movement and shoulder circles. After: gentle chest, back, hip, and quad stretches for 20–30 seconds.</Text></View></View><View style={styles.summary}><View><Text style={styles.summaryLabel}>TODAY’S FOCUS</Text><Text style={styles.summaryTitle}>Full-body strength</Text><Text style={styles.summaryMeta}>About 35 min · Dumbbells</Text></View><View style={styles.circle}><Text style={styles.circleText}>35</Text><Text style={styles.circleLabel}>MIN</Text></View></View><View style={styles.sectionRow}><Text style={styles.section}>Session plan</Text><Pressable><Text style={styles.link}>Edit</Text></Pressable></View>{exercises.map((exercise, i) => <View style={styles.exercise} key={exercise.name}><View style={styles.num}><Text style={styles.numText}>{i + 1}</Text></View><View style={{ flex: 1 }}><Text style={styles.exerciseName}>{exercise.name}</Text><Text style={styles.exerciseMeta}>{exercise.meta}</Text><Text style={styles.exerciseFocus}>{exercise.focus}</Text></View><IconSymbol name="chevron.right" size={19} color={muted} /></View>)}<Pressable style={({ pressed }) => [styles.start, pressed && styles.pressed]} onPress={() => { setStarted(true); router.push("/session"); }}><IconSymbol name={started ? "pause.fill" : "play.fill"} size={18} color="#111513" /><Text style={styles.startText}>{started ? "Pause session" : "Start session"}</Text></Pressable><Text style={styles.note}>Warm up gradually. Stop if you feel sharp pain, dizziness, or unusual symptoms, and seek professional guidance when needed.</Text></ScrollView></ScreenContainer>; }
-const styles = StyleSheet.create({ content: { paddingBottom: 30, gap: 15 }, eyebrow: { color: mint, fontSize: 11, fontWeight: "800", letterSpacing: 1.4 }, title: { color: "#F4F7F0", fontSize: 30, fontWeight: "800", letterSpacing: -0.7 }, subtitle: { color: muted, fontSize: 14, lineHeight: 20 }, mobility: { flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: "#202A21", borderRadius: 17, padding: 13, borderWidth: 1, borderColor: "#354536" }, mobilityIcon: { width: 38, height: 38, borderRadius: 12, backgroundColor: "#2B3B27", alignItems: "center", justifyContent: "center" }, mobilityTitle: { color: "#F4F7F0", fontSize: 13, fontWeight: "800" }, mobilityCopy: { color: muted, fontSize: 11, lineHeight: 16, marginTop: 3 }, summary: { backgroundColor: "#202A21", borderRadius: 21, padding: 18, flexDirection: "row", justifyContent: "space-between", alignItems: "center", borderWidth: 1, borderColor: "#354536", marginTop: 5 }, summaryLabel: { color: mint, fontSize: 10, fontWeight: "800", letterSpacing: 1.2 }, summaryTitle: { color: "#F4F7F0", fontSize: 21, fontWeight: "800", marginTop: 8 }, summaryMeta: { color: muted, fontSize: 12, marginTop: 4 }, circle: { width: 70, height: 70, borderRadius: 35, borderWidth: 3, borderColor: mint, alignItems: "center", justifyContent: "center" }, circleText: { color: "#F4F7F0", fontSize: 22, fontWeight: "800", lineHeight: 23 }, circleLabel: { color: mint, fontSize: 9, fontWeight: "800" }, choose: { backgroundColor: "#B8F36B", borderRadius: 17, padding: 15, gap: 4, marginTop: 2 }, chooseEyebrow: { color: "#46672B", fontSize: 10, fontWeight: "900", letterSpacing: 1.2 }, chooseText: { color: "#111513", fontSize: 18, fontWeight: "900" }, chooseCopy: { color: "#2E4625", fontSize: 12, lineHeight: 16 }, schedule: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: "#2B3B27", borderRadius: 14, padding: 12, borderWidth: 1, borderColor: mint }, limits: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: "#2A241A", borderRadius: 14, padding: 12, borderWidth: 1, borderColor: "#57482D" }, limitsText: { color: "#F7CF77", fontSize: 13, fontWeight: "800" }, scheduleText: { color: mint, fontSize: 13, fontWeight: "800" }, scan: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: "#202A21", borderRadius: 14, padding: 12, borderWidth: 1, borderColor: "#354536" }, scanText: { color: mint, fontSize: 13, fontWeight: "800" }, map: { backgroundColor: "#202A21", borderRadius: 17, padding: 15, borderWidth: 1, borderColor: "#354536", gap: 7 }, mapTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" }, mapTitle: { color: "#F4F7F0", fontWeight: "800", fontSize: 14 }, mapPrivacy: { color: mint, fontSize: 10, fontWeight: "800" }, mapCopy: { color: muted, fontSize: 11, lineHeight: 16 }, mapLink: { paddingTop: 2 }, mapLinkText: { color: mint, fontSize: 11, fontWeight: "800" }, activityRow: { flexDirection: "row", gap: 9 }, activity: { flex: 1, backgroundColor: "#1B231D", borderRadius: 14, padding: 13, alignItems: "center", gap: 7, borderWidth: 1, borderColor: "#263128" }, activityMark: { width: 28, height: 28, borderRadius: 10, backgroundColor: "#2B3B27", color: mint, textAlign: "center", textAlignVertical: "center", fontWeight: "900", paddingTop: 5 }, activityText: { color: "#F4F7F0", fontSize: 12, fontWeight: "800" }, sectionRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 5 }, section: { color: "#F4F7F0", fontSize: 18, fontWeight: "800" }, link: { color: mint, fontSize: 13, fontWeight: "700" }, exercise: { backgroundColor: "#1B231D", borderRadius: 18, padding: 15, flexDirection: "row", alignItems: "center", gap: 12, borderWidth: 1, borderColor: "#263128" }, num: { width: 34, height: 34, borderRadius: 12, backgroundColor: "#2C3321", alignItems: "center", justifyContent: "center" }, numText: { color: mint, fontWeight: "800" }, exerciseName: { color: "#F4F7F0", fontSize: 14, fontWeight: "800" }, exerciseMeta: { color: muted, fontSize: 11, marginTop: 4 }, exerciseFocus: { color: mint, fontSize: 10, fontWeight: "700", marginTop: 5 }, start: { backgroundColor: mint, borderRadius: 16, padding: 16, flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 9 }, startText: { color: "#111513", fontWeight: "800", fontSize: 15 }, pressed: { opacity: 0.75, transform: [{ scale: 0.98 }] }, note: { color: "#718071", fontSize: 11, lineHeight: 16 }
+import { useAuth } from "@/hooks/use-auth";
+import { DEFAULT_PROFILE_PREFERENCES, loadProfilePreferences, type ProfilePreferences } from "@/lib/profile-preferences";
+import { getWorkoutPlan, loadCompletedWorkouts, type CompletedWorkout } from "@/lib/workout-log";
+
+const mint = "#B8F36B";
+const muted = "#A8B3A6";
+const storageKey = (user: { openId?: string; id?: number } | null) => user?.openId ?? (user?.id ? String(user.id) : "local-user");
+
+export default function WorkoutScreen() {
+  const { user } = useAuth({ autoFetch: false });
+  const userKey = storageKey(user);
+  const [profile, setProfile] = useState<ProfilePreferences>(DEFAULT_PROFILE_PREFERENCES);
+  const [history, setHistory] = useState<CompletedWorkout[]>([]);
+
+  useFocusEffect(useCallback(() => {
+    let active = true;
+    void Promise.all([loadProfilePreferences(userKey), loadCompletedWorkouts(userKey)]).then(([savedProfile, savedHistory]) => {
+      if (!active) return;
+      setProfile(savedProfile);
+      setHistory(savedHistory);
+    });
+    return () => { active = false; };
+  }, [userKey]));
+
+  const plan = getWorkoutPlan(profile);
+  const latest = [...history].reverse().slice(0, 3);
+
+  return <ScreenContainer className="px-5 pt-4">
+    <ScrollView contentContainerStyle={styles.content}>
+      <Text style={styles.eyebrow}>WORKOUT</Text>
+      <Text style={styles.title}>Train with intention.</Text>
+      <Text style={styles.subtitle}>Built for your {profile.goal.toLowerCase()} goal using {profile.trainingSetup.toLowerCase()}.</Text>
+
+      <View style={styles.summary}>
+        <View><Text style={styles.summaryLabel}>TODAY’S PLAN</Text><Text style={styles.summaryTitle}>{plan.title}</Text><Text style={styles.summaryMeta}>About {plan.durationMinutes} min · {profile.trainingSetup}</Text></View>
+        <View style={styles.circle}><Text style={styles.circleText}>{plan.durationMinutes}</Text><Text style={styles.circleLabel}>MIN</Text></View>
+      </View>
+
+      <Pressable style={styles.profileLink} onPress={() => router.push("/profile")}><Text style={styles.profileLinkText}>Change goal or equipment in Profile ›</Text></Pressable>
+
+      <Text style={styles.section}>Session plan</Text>
+      {plan.exercises.map((exercise, index) => <View style={styles.exercise} key={exercise.name}>
+        <View style={styles.num}><Text style={styles.numText}>{index + 1}</Text></View>
+        <View style={styles.flex}><Text style={styles.exerciseName}>{exercise.name}</Text><Text style={styles.exerciseMeta}>{exercise.sets} sets · {exercise.repTarget} reps</Text><Text style={styles.exerciseFocus}>{exercise.focus}</Text></View>
+      </View>)}
+
+      <Pressable style={({ pressed }) => [styles.start, pressed && styles.pressed]} onPress={() => router.push("/session")}>
+        <IconSymbol name="play.fill" size={18} color="#111513" />
+        <Text style={styles.startText}>Start and log session</Text>
+      </Pressable>
+
+      <View style={styles.mobility}><IconSymbol name="figure.flexibility" size={20} color={mint} /><View style={styles.flex}><Text style={styles.mobilityTitle}>Warm up first</Text><Text style={styles.mobilityCopy}>Begin with five minutes of easy movement and practise the first exercise with a lighter load.</Text></View></View>
+
+      <Text style={styles.section}>Recent workouts</Text>
+      {latest.length ? latest.map((workout) => <View key={workout.id} style={styles.historyCard}><View style={styles.flex}><Text style={styles.historyTitle}>{workout.title}</Text><Text style={styles.historyMeta}>{new Date(workout.completedAt).toLocaleDateString("en-AU", { day: "numeric", month: "short" })} · {workout.exercises.reduce((total, exercise) => total + exercise.completedSets.length, 0)} sets</Text></View><IconSymbol name="checkmark" size={18} color={mint} /></View>) : <Text style={styles.empty}>Complete your first logged workout to begin your history.</Text>}
+
+      <Text style={styles.note}>Warm up gradually. Stop for sharp pain, dizziness, or unusual symptoms and seek appropriate professional advice.</Text>
+    </ScrollView>
+  </ScreenContainer>;
+}
+
+const styles = StyleSheet.create({
+  content: { paddingBottom: 30, gap: 15 },
+  flex: { flex: 1 },
+  eyebrow: { color: mint, fontSize: 11, fontWeight: "800", letterSpacing: 1.4 },
+  title: { color: "#F4F7F0", fontSize: 30, fontWeight: "800", letterSpacing: -0.7 },
+  subtitle: { color: muted, fontSize: 14, lineHeight: 20 },
+  summary: { backgroundColor: "#202A21", borderRadius: 21, padding: 18, flexDirection: "row", justifyContent: "space-between", alignItems: "center", borderWidth: 1, borderColor: "#354536" },
+  summaryLabel: { color: mint, fontSize: 10, fontWeight: "800", letterSpacing: 1.2 },
+  summaryTitle: { color: "#F4F7F0", fontSize: 21, fontWeight: "800", marginTop: 8 },
+  summaryMeta: { color: muted, fontSize: 12, marginTop: 4 },
+  circle: { width: 70, height: 70, borderRadius: 35, borderWidth: 3, borderColor: mint, alignItems: "center", justifyContent: "center" },
+  circleText: { color: "#F4F7F0", fontSize: 22, fontWeight: "800", lineHeight: 23 },
+  circleLabel: { color: mint, fontSize: 9, fontWeight: "800" },
+  profileLink: { alignItems: "center", padding: 10 },
+  profileLinkText: { color: mint, fontSize: 12, fontWeight: "800" },
+  section: { color: "#F4F7F0", fontSize: 18, fontWeight: "800", marginTop: 4 },
+  exercise: { backgroundColor: "#1B231D", borderRadius: 18, padding: 15, flexDirection: "row", alignItems: "center", gap: 12, borderWidth: 1, borderColor: "#263128" },
+  num: { width: 34, height: 34, borderRadius: 12, backgroundColor: "#2C3321", alignItems: "center", justifyContent: "center" },
+  numText: { color: mint, fontWeight: "800" },
+  exerciseName: { color: "#F4F7F0", fontSize: 14, fontWeight: "800" },
+  exerciseMeta: { color: muted, fontSize: 11, marginTop: 4 },
+  exerciseFocus: { color: mint, fontSize: 10, fontWeight: "700", marginTop: 5 },
+  start: { backgroundColor: mint, borderRadius: 16, padding: 16, flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 9 },
+  startText: { color: "#111513", fontWeight: "800", fontSize: 15 },
+  pressed: { opacity: 0.75, transform: [{ scale: 0.98 }] },
+  mobility: { flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: "#202A21", borderRadius: 17, padding: 14, borderWidth: 1, borderColor: "#354536" },
+  mobilityTitle: { color: "#F4F7F0", fontSize: 13, fontWeight: "800" },
+  mobilityCopy: { color: muted, fontSize: 11, lineHeight: 16, marginTop: 3 },
+  historyCard: { flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: "#1B231D", borderRadius: 15, padding: 13, borderWidth: 1, borderColor: "#263128" },
+  historyTitle: { color: "#F4F7F0", fontSize: 13, fontWeight: "800" },
+  historyMeta: { color: muted, fontSize: 11, marginTop: 3 },
+  empty: { color: muted, fontSize: 12, lineHeight: 17 },
+  note: { color: "#718071", fontSize: 11, lineHeight: 16 },
 });
