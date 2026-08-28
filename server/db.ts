@@ -1,6 +1,6 @@
-import { eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, feedback, goals, profiles, users } from "../drizzle/schema";
+import { InsertUser, feedback, goals, profiles, userData, users } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -128,3 +128,36 @@ export async function getAdminOverview() {
   return { registeredUsers: Number(registered[0]?.value ?? 0), activeUsers: Number(active[0]?.value ?? 0), feedbackOpen: Number(feedbackOpen[0]?.value ?? 0) };
 }
 
+
+export async function getUserData(userId: number, namespace: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const rows = await db.select({ payloadJson: userData.payloadJson })
+    .from(userData)
+    .where(and(eq(userData.userId, userId), eq(userData.namespace, namespace)))
+    .limit(1);
+  if (!rows[0]) return null;
+  try {
+    return JSON.parse(rows[0].payloadJson) as unknown;
+  } catch {
+    return null;
+  }
+}
+
+export async function setUserData(userId: number, namespace: string, payload: unknown) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const payloadJson = JSON.stringify(payload);
+  await db.insert(userData)
+    .values({ userId, namespace, payloadJson })
+    .onDuplicateKeyUpdate({ set: { payloadJson } });
+  return { success: true } as const;
+}
+
+export async function deleteUserData(userId: number, namespace: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.delete(userData)
+    .where(and(eq(userData.userId, userId), eq(userData.namespace, namespace)));
+  return { success: true } as const;
+}
