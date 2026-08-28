@@ -10,13 +10,13 @@ import { loadCompletedWorkouts, saveActiveWorkoutPlan, type CompletedWorkout, ty
 
 const mint = "#B8F36B";
 const muted = "#A8B3A6";
-const muscleGroups: MuscleGroup[] = ["Full body", "Chest", "Back", "Shoulders", "Arms", "Legs", "Core"];
+const muscleGroups: MuscleGroup[] = ["Full body", "Chest", "Back", "Shoulders", "Arms", "Legs", "Core", "Cardio"];
 const durations = [20, 30, 45, 60];
 const storageKey = (user: { openId?: string; id?: number } | null) => user?.openId ?? (user?.id ? String(user.id) : "local-user");
 
 function pickExercises(focus: MuscleGroup, duration: number, profile: ProfilePreferences, offset = 0) {
   const available = exercisesFor(focus, profile.trainingSetup);
-  const count = Math.min(available.length, Math.max(3, Math.round(duration / 8)));
+  const count = Math.min(available.length, focus === "Cardio" ? Math.max(1, Math.round(duration / 15)) : Math.max(3, Math.round(duration / 8)));
   if (focus !== "Full body") return Array.from({ length: count }, (_, index) => available[(index + offset) % available.length]);
 
   const groups = ["Chest", "Back", "Shoulders", "Arms", "Legs", "Core"] as const;
@@ -32,12 +32,17 @@ function pickExercises(focus: MuscleGroup, duration: number, profile: ProfilePre
   return selected;
 }
 
-function toWorkoutExercise(item: ExerciseLibraryItem, profile: ProfilePreferences): WorkoutExercise {
+function toWorkoutExercise(item: ExerciseLibraryItem, profile: ProfilePreferences, duration: number, exerciseCount: number): WorkoutExercise {
+  if (item.muscleGroup === "Cardio") {
+    const minutes = Math.max(5, Math.floor(duration / Math.max(1, exerciseCount)));
+    return { name: item.name, focus: item.focus, sets: 1, repTarget: `${minutes} min`, tracking: "time" };
+  }
   return {
     name: item.name,
     focus: item.focus,
     sets: profile.goal === "Maintain health" ? 2 : 3,
     repTarget: profile.goal === "Build strength" ? "8–10" : "10–12",
+    tracking: "reps",
   };
 }
 
@@ -82,7 +87,7 @@ export default function WorkoutScreen() {
   };
 
   const startSession = async () => {
-    const exercises = selected.map((item) => toWorkoutExercise(item, profile));
+    const exercises = selected.map((item) => toWorkoutExercise(item, profile, duration, selected.length));
     await saveActiveWorkoutPlan(userKey, {
       title: focus === "Full body" ? "Full-body workout" : `${focus} workout`,
       focus,
@@ -114,7 +119,7 @@ export default function WorkoutScreen() {
       {selected.map((exercise, index) => <View key={`${exercise.id}-${index}`}>
         <Pressable style={styles.exercise} onPress={() => setEditingIndex(editingIndex === index ? null : index)}>
           <View style={styles.num}><Text style={styles.numText}>{index + 1}</Text></View>
-          <View style={styles.flex}><Text style={styles.exerciseName}>{exercise.name}</Text><Text style={styles.exerciseMeta}>{toWorkoutExercise(exercise, profile).sets} sets · {toWorkoutExercise(exercise, profile).repTarget} reps</Text><Text style={styles.exerciseFocus}>{exercise.focus}</Text></View>
+          <View style={styles.flex}><Text style={styles.exerciseName}>{exercise.name}</Text><Text style={styles.exerciseMeta}>{toWorkoutExercise(exercise, profile, duration, selected.length).tracking === "time" ? toWorkoutExercise(exercise, profile, duration, selected.length).repTarget : `${toWorkoutExercise(exercise, profile, duration, selected.length).sets} sets · ${toWorkoutExercise(exercise, profile, duration, selected.length).repTarget} reps`}</Text><Text style={styles.exerciseFocus}>{exercise.focus}</Text></View>
           <Text style={styles.swap}>Change</Text>
         </Pressable>
         {editingIndex === index ? <View style={styles.choiceList}><Text style={styles.choiceTitle}>Choose another {focus.toLowerCase()} exercise</Text>{candidates.filter((candidate) => !selected.some((item, selectedIndex) => selectedIndex !== index && item.id === candidate.id)).map((candidate) => <Pressable key={candidate.id} style={styles.choiceRow} onPress={() => replaceExercise(index, candidate)}><Text style={styles.choiceText}>{candidate.name}</Text><Text style={styles.choiceMeta}>{candidate.focus}</Text></Pressable>)}</View> : null}
