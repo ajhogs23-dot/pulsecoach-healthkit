@@ -1,4 +1,4 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { loadPersistentUserData, savePersistentUserData } from "@/lib/persistent-user-data";
 
 export type MealName = "Breakfast" | "Lunch" | "Dinner" | "Snacks";
 
@@ -24,14 +24,7 @@ export type FoodLogEntry = {
 const storageKey = (userKey: string) => `pulsecoach.foodLog.${userKey}`;
 
 export async function loadFoodLog(userKey: string): Promise<FoodLogEntry[]> {
-  const raw = await AsyncStorage.getItem(storageKey(userKey));
-  if (!raw) return [];
-  try {
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
+  return loadPersistentUserData<FoodLogEntry[]>("food-log", storageKey(userKey), []);
 }
 
 export async function addFoodLog(
@@ -44,14 +37,14 @@ export async function addFoodLog(
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     createdAt: new Date().toISOString(),
   }];
-  await AsyncStorage.setItem(storageKey(userKey), JSON.stringify(next));
+  await savePersistentUserData("food-log", storageKey(userKey), next);
   return next;
 }
 
 export async function removeFoodLog(userKey: string, entryId: string): Promise<FoodLogEntry[]> {
   const current = await loadFoodLog(userKey);
   const next = current.filter((entry) => entry.id !== entryId);
-  await AsyncStorage.setItem(storageKey(userKey), JSON.stringify(next));
+  await savePersistentUserData("food-log", storageKey(userKey), next);
   return next;
 }
 
