@@ -1,16 +1,32 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
+import { useAuth } from "@/hooks/use-auth";
+import { loadHealthSnapshot, type HealthSyncSnapshot } from "@/lib/healthkit";
 
 const mint = "#B8F36B";
 const bg = "#111513";
 const surface = "#1B231D";
 const muted = "#A8B3A6";
+const storageKey = (user: { openId?: string; id?: number } | null) => user?.openId ?? (user?.id ? String(user.id) : "local-user");
 
 export default function HomeScreen() {
-  const [connected, setConnected] = useState(false);
+  const { user } = useAuth({ autoFetch: false });
+  const userKey = storageKey(user);
+  const [health, setHealth] = useState<HealthSyncSnapshot | null>(null);
+
+  useFocusEffect(useCallback(() => {
+    let active = true;
+    void loadHealthSnapshot(userKey)
+      .then((snapshot) => { if (active) setHealth(snapshot); })
+      .catch(() => { if (active) setHealth(null); });
+    return () => { active = false; };
+  }, [userKey]));
+
+  const summary = health?.summary;
+  const connected = health?.status === "connected" || Boolean(health?.lastSyncedAt);
   return (
     <ScreenContainer containerClassName="bg-background" className="px-5 pt-3">
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
@@ -45,13 +61,13 @@ export default function HomeScreen() {
           <Pressable onPress={() => router.push("/activity" as any)}><Text style={styles.link}>View activity</Text></Pressable>
         </View>
         <View style={styles.metricGrid}>
-          <Metric icon="figure.walk" label="Movement" value="—" note={connected ? "Syncing from Apple Health" : "Connect Apple Health"} onPress={() => router.push("/health")} />
-          <Metric icon="flame.fill" label="Active energy" value="—" note="No data yet" onPress={() => router.push("/health")} />
+          <Metric icon="figure.walk" label="Movement" value={summary?.steps === undefined ? "—" : Math.round(summary.steps).toLocaleString("en-AU")} note={connected ? "steps from Apple Health" : "Connect Apple Health"} onPress={() => router.push("/health")} />
+          <Metric icon="flame.fill" label="Active energy" value={summary?.activeEnergyKcal === undefined ? "—" : `${Math.round(summary.activeEnergyKcal)} kcal`} note={connected ? "from Apple Health" : "No data yet"} onPress={() => router.push("/health")} />
           <Metric icon="fork.knife" label="Nutrition" value="Start" note="Build your first meal" onPress={() => router.push("/nutrition")} />
           <Metric icon="dumbbell.fill" label="Training" value="Ready" note="Plan today’s session" onPress={() => router.push("/workout")} />
         </View>
 
-        {!connected && <Pressable style={styles.healthBanner} onPress={() => { setConnected(true); router.push("/health"); }}>
+        {!connected && <Pressable style={styles.healthBanner} onPress={() => router.push("/health")}>
           <View style={styles.healthIcon}><IconSymbol name="heart.text.square.fill" size={22} color={mint} /></View>
           <View style={styles.healthBody}><Text style={styles.healthTitle}>Connect Apple Health</Text><Text style={styles.healthCopy}>Use your movement and workout data for more useful coaching.</Text></View>
           <IconSymbol name="chevron.right" size={20} color={muted} />
