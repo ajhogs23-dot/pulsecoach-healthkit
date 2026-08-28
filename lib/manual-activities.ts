@@ -1,4 +1,4 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { loadPersistentUserData, savePersistentUserData } from "@/lib/persistent-user-data";
 
 export type ManualActivityType = "Strength" | "Cardio" | "Walk";
 
@@ -13,14 +13,7 @@ export type ManualActivity = {
 const storageKey = (userKey: string) => `pulsecoach.manualActivities.${userKey}`;
 
 export async function loadManualActivities(userKey: string): Promise<ManualActivity[]> {
-  const raw = await AsyncStorage.getItem(storageKey(userKey));
-  if (!raw) return [];
-  try {
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
+  return loadPersistentUserData<ManualActivity[]>("manual-activities", storageKey(userKey), []);
 }
 
 export async function addManualActivity(
@@ -37,14 +30,14 @@ export async function addManualActivity(
       createdAt,
     },
   ];
-  await AsyncStorage.setItem(storageKey(userKey), JSON.stringify(next));
+  await savePersistentUserData("manual-activities", storageKey(userKey), next);
   return next;
 }
 
 export async function removeManualActivity(userKey: string, activityId: string): Promise<ManualActivity[]> {
   const current = await loadManualActivities(userKey);
   const next = current.filter((activity) => activity.id !== activityId);
-  await AsyncStorage.setItem(storageKey(userKey), JSON.stringify(next));
+  await savePersistentUserData("manual-activities", storageKey(userKey), next);
   return next;
 }
 
