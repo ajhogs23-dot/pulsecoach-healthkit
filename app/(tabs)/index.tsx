@@ -27,16 +27,21 @@ export default function HomeScreen() {
 
   const summary = health?.summary;
   const connected = health?.status === "connected" || Boolean(health?.lastSyncedAt);
+  const now = new Date();
+  const hour = now.getHours();
+  const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
+  const firstName = user?.name?.trim().split(/\s+/)[0] || "Andy";
+  const dateLabel = new Intl.DateTimeFormat("en-AU", { weekday: "long", day: "numeric", month: "short" }).format(now).toUpperCase();
   return (
     <ScreenContainer containerClassName="bg-background" className="px-5 pt-3">
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
         <View style={styles.header}>
           <View>
-            <Text style={styles.eyebrow}>WEDNESDAY, AUG 27</Text>
-            <Text style={styles.title}>Good evening, Alex</Text>
+            <Text style={styles.eyebrow}>{dateLabel}</Text>
+            <Text style={styles.title}>{greeting}, {firstName}</Text>
           </View>
           <Pressable style={styles.avatar} onPress={() => router.push("/profile")}>
-            <Text style={styles.avatarText}>A</Text>
+            <Text style={styles.avatarText}>{firstName.charAt(0).toUpperCase()}</Text>
           </Pressable>
         </View>
 
