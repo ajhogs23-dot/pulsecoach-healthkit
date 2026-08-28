@@ -7,6 +7,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { loadHealthSnapshot, syncHealthData, type HealthSyncSnapshot } from "@/lib/healthkit";
 import { loadManualActivities, summariseManualActivities, type ManualActivity } from "@/lib/manual-activities";
 import { loadFoodLog, summariseFoodLog, todayFoodLog, type FoodLogEntry } from "@/lib/food-log";
+import { DEFAULT_PROFILE_PREFERENCES, loadProfilePreferences, type ProfilePreferences } from "@/lib/profile-preferences";
 
 const mint = "#B8F36B";
 const bg = "#111513";
@@ -20,18 +21,21 @@ export default function HomeScreen() {
   const [health, setHealth] = useState<HealthSyncSnapshot | null>(null);
   const [manualActivities, setManualActivities] = useState<ManualActivity[]>([]);
   const [foodEntries, setFoodEntries] = useState<FoodLogEntry[]>([]);
+  const [profile, setProfile] = useState<ProfilePreferences>(DEFAULT_PROFILE_PREFERENCES);
 
   useFocusEffect(useCallback(() => {
     let active = true;
     const refresh = async () => {
       try {
-        const [savedActivities, savedFood] = await Promise.all([
+        const [savedActivities, savedFood, savedProfile] = await Promise.all([
           loadManualActivities(userKey),
           loadFoodLog(userKey),
+          loadProfilePreferences(userKey),
         ]);
         if (active) {
           setManualActivities(savedActivities);
           setFoodEntries(savedFood);
+          setProfile(savedProfile);
         }
         const cached = await loadHealthSnapshot(userKey);
         if (active) setHealth(cached);
@@ -63,7 +67,7 @@ export default function HomeScreen() {
   const now = new Date();
   const hour = now.getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
-  const firstName = user?.name?.trim().split(/\s+/)[0] || "Andy";
+  const firstName = profile.name.trim().split(/\s+/)[0] || user?.name?.trim().split(/\s+/)[0] || "Andy";
   const dateLabel = new Intl.DateTimeFormat("en-AU", { weekday: "long", day: "numeric", month: "short" }).format(now).toUpperCase();
   return (
     <ScreenContainer containerClassName="bg-background" className="px-5 pt-3">
