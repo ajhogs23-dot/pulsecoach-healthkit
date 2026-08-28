@@ -5,6 +5,7 @@ import { router, useFocusEffect } from "expo-router";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useAuth } from "@/hooks/use-auth";
 import { addFoodLog, loadFoodLog, removeFoodLog, summariseFoodLog, todayFoodLog, type FoodLogEntry, type FoodNutrition, type MealName } from "@/lib/food-log";
+import { DEFAULT_PROFILE_PREFERENCES, loadProfilePreferences, type ProfilePreferences } from "@/lib/profile-preferences";
 
 const mint = "#B8F36B";
 const muted = "#A8B3A6";
@@ -33,6 +34,7 @@ export default function NutritionScreen() {
   const [query, setQuery] = useState("");
   const [selectedMeal, setSelectedMeal] = useState<MealName>("Breakfast");
   const [entries, setEntries] = useState<FoodLogEntry[]>([]);
+  const [profile, setProfile] = useState<ProfilePreferences>(DEFAULT_PROFILE_PREFERENCES);
   const [manualOpen, setManualOpen] = useState(false);
   const [manualName, setManualName] = useState("");
   const [manualServings, setManualServings] = useState("1");
@@ -44,7 +46,11 @@ export default function NutritionScreen() {
 
   useFocusEffect(useCallback(() => {
     let active = true;
-    void loadFoodLog(userKey).then((saved) => { if (active) setEntries(saved); });
+    void Promise.all([loadFoodLog(userKey), loadProfilePreferences(userKey)]).then(([savedEntries, savedProfile]) => {
+      if (!active) return;
+      setEntries(savedEntries);
+      setProfile(savedProfile);
+    });
     return () => { active = false; };
   }, [userKey]));
 
@@ -57,6 +63,7 @@ export default function NutritionScreen() {
   const todayEntries = todayFoodLog(entries);
   const totals = summariseFoodLog(entries);
   const kilojoules = totals.calories * 4.184;
+  const remainingCalories = profile.calorieTarget === undefined ? undefined : profile.calorieTarget - totals.calories;
 
   const addSuggestion = async (item: CatalogueItem) => {
     const updated = await addFoodLog(userKey, {
@@ -133,7 +140,7 @@ export default function NutritionScreen() {
 
       <View style={styles.suggestions}><Text style={styles.suggestionTitle}>{query.length ? "Suggested matches" : "Quick add"}</Text>{suggestions.length ? suggestions.map((item) => <Pressable key={item.name} style={styles.suggestion} onPress={() => void addSuggestion(item)}><View style={styles.foodIcon}><Text style={styles.foodMark}>{item.name[0]}</Text></View><View style={{ flex: 1 }}><Text style={styles.foodName}>{item.name}</Text><Text style={styles.foodMeta}>{item.brand} · {item.detail}</Text><Text style={styles.foodSource}>{item.source}</Text></View><Text style={styles.add}>Add</Text></Pressable>) : <Text style={styles.empty}>No confident match. Try another spelling.</Text>}</View>
 
-      <View style={styles.summary}><View><Text style={styles.summaryEyebrow}>TODAY’S TOTALS</Text><Text style={styles.summaryTitle}>{Math.round(totals.calories)} kcal <Text style={styles.kj}>· {Math.round(kilojoules)} kJ</Text></Text><Text style={styles.summaryCopy}>{todayEntries.length} food entr{todayEntries.length === 1 ? "y" : "ies"} logged today</Text></View><View style={styles.ring}><Text style={styles.ringText}>{Math.round(totals.protein)}g</Text><Text style={styles.ringLabel}>PROTEIN</Text></View></View>
+      <View style={styles.summary}><View><Text style={styles.summaryEyebrow}>TODAY’S TOTALS</Text><Text style={styles.summaryTitle}>{Math.round(totals.calories)} kcal <Text style={styles.kj}>· {Math.round(kilojoules)} kJ</Text></Text><Text style={styles.summaryCopy}>{remainingCalories === undefined ? `${todayEntries.length} food entr${todayEntries.length === 1 ? "y" : "ies"} logged today` : `${Math.round(Math.abs(remainingCalories))} kcal ${remainingCalories >= 0 ? "remaining" : "over target"} · ${todayEntries.length} entries`}</Text></View><View style={styles.ring}><Text style={styles.ringText}>{Math.round(totals.protein)}g</Text><Text style={styles.ringLabel}>PROTEIN</Text></View></View>
       <View style={styles.metricRow}>{[["Carbs", `${Math.round(totals.carbohydrates)} g`], ["Fat", `${Math.round(totals.fat)} g`], ["Fibre", `${Math.round(totals.fibre)} g`], ["Sugar", `${Math.round(totals.sugars)} g`], ["Sodium", `${Math.round(totals.sodium)} mg`]].map(([label, value]) => <View key={label} style={styles.metric}><Text style={styles.metricLabel}>{label}</Text><Text style={styles.metricValue}>{value}</Text></View>)}</View>
 
       {mealNames.map((meal) => {
