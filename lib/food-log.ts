@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import type { FoodServingUnit } from "@/lib/food-serving";
 
 export type MealName = "Breakfast" | "Lunch" | "Dinner" | "Snacks";
 
@@ -17,6 +18,9 @@ export type FoodLogEntry = {
   name: string;
   meal: MealName;
   servings: number;
+  amount?: number;
+  unit?: FoodServingUnit;
+  servingDescription?: string;
   nutrition: FoodNutrition;
   createdAt: string;
 };
