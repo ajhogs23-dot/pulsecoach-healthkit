@@ -6,7 +6,7 @@ import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useAuth } from "@/hooks/use-auth";
 import { loadHealthSnapshot, syncHealthData, type HealthSyncSnapshot } from "@/lib/healthkit";
-import { addManualActivity, loadManualActivities, summariseManualActivities, type ManualActivity } from "@/lib/manual-activities";
+import { addManualActivity, loadManualActivities, removeManualActivity, summariseManualActivities, type ManualActivity } from "@/lib/manual-activities";
 
 const mint = "#B8F36B";
 const muted = "#A8B3A6";
@@ -55,6 +55,13 @@ export default function ActivityScreen() {
   const manualSummary = summariseManualActivities(manualActivities);
   const totalCalories = (summary?.activeEnergyKcal ?? 0) + manualSummary.calories;
   const hasCalories = summary?.activeEnergyKcal !== undefined || manualSummary.calories > 0;
+
+  const deleteActivity = async (activityId: string) => {
+    const updated = await removeManualActivity(userKey, activityId);
+    setManualActivities(updated);
+    setLogged(false);
+    setFeedback("Activity removed and today’s totals updated.");
+  };
 
   const selectActivity = (type: ActivityType) => {
     setActivityType(type);
@@ -179,7 +186,19 @@ export default function ActivityScreen() {
           {feedback ? <Text style={logged ? styles.success : styles.feedback}>{feedback}</Text> : null}
         </View>
 
-        {manualSummary.entries.length > 0 ? <View style={styles.info}><Text style={styles.infoTitle}>Today’s manual activity</Text><Text style={styles.infoCopy}>{manualSummary.entries.length} entr{manualSummary.entries.length === 1 ? "y" : "ies"} · {Math.round(manualSummary.minutes)} min{manualSummary.calories > 0 ? ` · ${Math.round(manualSummary.calories)} kcal` : ""}</Text></View> : null}
+        {manualSummary.entries.length > 0 ? <View style={styles.activityList}>
+          <Text style={styles.infoTitle}>Today’s manual activity</Text>
+          <Text style={styles.infoCopy}>{manualSummary.entries.length} entr{manualSummary.entries.length === 1 ? "y" : "ies"} · {Math.round(manualSummary.minutes)} min{manualSummary.calories > 0 ? ` · ${Math.round(manualSummary.calories)} kcal` : ""}</Text>
+          {[...manualSummary.entries].reverse().map((activity) => <View key={activity.id} style={styles.activityRow}>
+            <View style={styles.activityBody}>
+              <Text style={styles.activityTitle}>{activity.type} · {Math.round(activity.minutes)} min</Text>
+              <Text style={styles.activityMeta}>{activity.calories === undefined ? "No calories entered" : `${Math.round(activity.calories)} kcal`} · {new Date(activity.createdAt).toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit" })}</Text>
+            </View>
+            <Pressable onPress={() => void deleteActivity(activity.id)} style={({ pressed }) => [styles.deleteButton, pressed && styles.pressed]} accessibilityRole="button" accessibilityLabel={`Delete ${activity.type} activity`}>
+              <Text style={styles.deleteText}>Delete</Text>
+            </Pressable>
+          </View>)}
+        </View> : null}
 
         <View style={styles.info}>
           <Text style={styles.infoTitle}>No data is a valid state</Text>
@@ -234,6 +253,13 @@ const styles = StyleSheet.create({
   feedback: { color: "#FFD166", fontSize: 12, lineHeight: 17 },
   success: { color: mint, fontSize: 12, lineHeight: 17 },
   info: { padding: 16, backgroundColor: "#202A21", borderRadius: 18, borderWidth: 1, borderColor: "#354536" },
+  activityList: { padding: 16, gap: 10, backgroundColor: "#202A21", borderRadius: 18, borderWidth: 1, borderColor: "#354536" },
+  activityRow: { flexDirection: "row", alignItems: "center", gap: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: "#354536" },
+  activityBody: { flex: 1 },
+  activityTitle: { color: "#F4F7F0", fontSize: 13, fontWeight: "800" },
+  activityMeta: { color: muted, fontSize: 11, marginTop: 3 },
+  deleteButton: { paddingHorizontal: 11, paddingVertical: 8, borderRadius: 10, backgroundColor: "#3A252B" },
+  deleteText: { color: "#F49AB5", fontSize: 11, fontWeight: "800" },
   infoTitle: { color: "#F4F7F0", fontSize: 14, fontWeight: "800" },
   infoCopy: { color: muted, fontSize: 12, lineHeight: 17, marginTop: 5 },
   note: { color: "#718071", fontSize: 11, lineHeight: 16, textAlign: "center" },
