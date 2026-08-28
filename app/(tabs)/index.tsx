@@ -8,6 +8,7 @@ import { loadHealthSnapshot, syncHealthData, type HealthSyncSnapshot } from "@/l
 import { loadManualActivities, summariseManualActivities, type ManualActivity } from "@/lib/manual-activities";
 import { loadFoodLog, summariseFoodLog, todayFoodLog, type FoodLogEntry } from "@/lib/food-log";
 import { calculateCalorieEstimate, DEFAULT_PROFILE_PREFERENCES, loadProfilePreferences, type ProfilePreferences } from "@/lib/profile-preferences";
+import { getWorkoutPlan, loadCompletedWorkouts, todayCompletedWorkouts, type CompletedWorkout } from "@/lib/workout-log";
 
 const mint = "#B8F36B";
 const bg = "#111513";
@@ -22,20 +23,23 @@ export default function HomeScreen() {
   const [manualActivities, setManualActivities] = useState<ManualActivity[]>([]);
   const [foodEntries, setFoodEntries] = useState<FoodLogEntry[]>([]);
   const [profile, setProfile] = useState<ProfilePreferences>(DEFAULT_PROFILE_PREFERENCES);
+  const [workouts, setWorkouts] = useState<CompletedWorkout[]>([]);
 
   useFocusEffect(useCallback(() => {
     let active = true;
     const refresh = async () => {
       try {
-        const [savedActivities, savedFood, savedProfile] = await Promise.all([
+        const [savedActivities, savedFood, savedProfile, savedWorkouts] = await Promise.all([
           loadManualActivities(userKey),
           loadFoodLog(userKey),
           loadProfilePreferences(userKey),
+          loadCompletedWorkouts(userKey),
         ]);
         if (active) {
           setManualActivities(savedActivities);
           setFoodEntries(savedFood);
           setProfile(savedProfile);
+          setWorkouts(savedWorkouts);
         }
         const cached = await loadHealthSnapshot(userKey);
         if (active) setHealth(cached);
@@ -67,6 +71,8 @@ export default function HomeScreen() {
   const calorieTarget = profile.calorieTarget ?? calculateCalorieEstimate(profile)?.recommendedCalories;
   const calorieRemaining = calorieTarget === undefined ? undefined : calorieTarget - nutritionSummary.calories;
   const calorieProgress = calorieTarget ? Math.min(100, Math.max(0, nutritionSummary.calories / calorieTarget * 100)) : 0;
+  const workoutsToday = todayCompletedWorkouts(workouts);
+  const workoutPlan = getWorkoutPlan(profile);
   const now = new Date();
   const hour = now.getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
@@ -109,7 +115,7 @@ export default function HomeScreen() {
           <Metric icon="figure.walk" label="Movement" value={summary?.steps === undefined ? "—" : Math.round(summary.steps).toLocaleString("en-AU")} note={connected ? "steps from Apple Health" : "Connect Apple Health"} onPress={() => router.push("/health")} />
           <Metric icon="flame.fill" label="Active energy" value={hasActiveEnergy ? `${Math.round(totalActiveEnergy)} kcal` : "—"} note={manualSummary.calories > 0 ? "Health + manual entries" : connected ? "from Apple Health" : "No data yet"} onPress={() => router.push("/activity" as any)} />
           <Metric icon="fork.knife" label="Nutrition" value={foodsLoggedToday ? `${Math.round(nutritionSummary.calories)} kcal` : "Start"} note={foodsLoggedToday ? `${foodsLoggedToday} food entr${foodsLoggedToday === 1 ? "y" : "ies"} today` : "Build your first meal"} onPress={() => router.push("/nutrition")} />
-          <Metric icon="dumbbell.fill" label="Training" value="Ready" note="Plan today’s session" onPress={() => router.push("/workout")} />
+          <Metric icon="dumbbell.fill" label="Training" value={workoutsToday.length ? "Done" : "Ready"} note={workoutsToday.length ? `${workoutsToday.length} workout${workoutsToday.length === 1 ? "" : "s"} completed` : `${workoutPlan.durationMinutes} min ${workoutPlan.title.toLowerCase()}`} onPress={() => router.push("/workout")} />
         </View>
 
         {calorieTarget !== undefined ? <Pressable style={styles.calorieCard} onPress={() => router.push("/nutrition")}>
