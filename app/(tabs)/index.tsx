@@ -1,10 +1,10 @@
 import { useCallback, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { AppState, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { router, useFocusEffect } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useAuth } from "@/hooks/use-auth";
-import { loadHealthSnapshot, type HealthSyncSnapshot } from "@/lib/healthkit";
+import { loadHealthSnapshot, syncHealthData, type HealthSyncSnapshot } from "@/lib/healthkit";
 
 const mint = "#B8F36B";
 const bg = "#111513";
@@ -19,10 +19,26 @@ export default function HomeScreen() {
 
   useFocusEffect(useCallback(() => {
     let active = true;
-    void loadHealthSnapshot(userKey)
-      .then((snapshot) => { if (active) setHealth(snapshot); })
-      .catch(() => { if (active) setHealth(null); });
-    return () => { active = false; };
+    const refresh = async () => {
+      try {
+        const cached = await loadHealthSnapshot(userKey);
+        if (active) setHealth(cached);
+        if (cached.status === "connected" || cached.lastSyncedAt) {
+          const synced = await syncHealthData(userKey, new Date(), cached.preferences);
+          if (active) setHealth(synced);
+        }
+      } catch {
+        if (active) setHealth(null);
+      }
+    };
+    void refresh();
+    const subscription = AppState.addEventListener("change", (state) => {
+      if (state === "active") void refresh();
+    });
+    return () => {
+      active = false;
+      subscription.remove();
+    };
   }, [userKey]));
 
   const summary = health?.summary;
