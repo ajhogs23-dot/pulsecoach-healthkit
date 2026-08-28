@@ -1,4 +1,4 @@
-import { boolean, index, int, mysqlEnum, mysqlTable, text, timestamp, uniqueIndex, varchar } from "drizzle-orm/mysql-core";
+import { boolean, index, int, longtext, mysqlEnum, mysqlTable, text, timestamp, uniqueIndex, varchar } from "drizzle-orm/mysql-core";
 
 export const users = mysqlTable("users", {
   id: int("id").autoincrement().primaryKey(),
@@ -35,7 +35,7 @@ export const userData = mysqlTable("user_data", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull(),
   namespace: varchar("namespace", { length: 80 }).notNull(),
-  payloadJson: text("payloadJson").notNull(),
+  payloadJson: longtext("payloadJson").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 }, (t) => ({
