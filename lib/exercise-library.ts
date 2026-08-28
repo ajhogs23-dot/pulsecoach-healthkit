@@ -1,4 +1,4 @@
-export type MuscleGroup = "Full body" | "Chest" | "Back" | "Shoulders" | "Arms" | "Legs" | "Core";
+export type MuscleGroup = "Full body" | "Chest" | "Back" | "Shoulders" | "Arms" | "Legs" | "Core" | "Cardio";
 export type ExerciseEquipment = "Bodyweight" | "Dumbbells" | "Full gym";
 
 export type ExerciseLibraryItem = {
@@ -88,6 +88,29 @@ export const EXERCISE_LIBRARY: ExerciseLibraryItem[] = [
   item("core-suitcase", "Suitcase carry", "Core", ["Dumbbells", "Full gym"], "Core + grip"),
   item("core-cable-crunch", "Cable crunch", "Core", ["Full gym"], "Abdominals"),
   item("core-pallof", "Pallof press", "Core", ["Full gym"], "Anti-rotation core"),
+  item("cardio-treadmill-walk", "Treadmill brisk walk", "Cardio", ["Full gym"], "Steady cardio"),
+  item("cardio-treadmill-jog", "Treadmill jog", "Cardio", ["Full gym"], "Steady cardio"),
+  item("cardio-treadmill-incline", "Incline treadmill walk", "Cardio", ["Full gym"], "Hill cardio"),
+  item("cardio-treadmill-sprints", "Treadmill sprint intervals", "Cardio", ["Full gym"], "High intensity"),
+  item("cardio-row-steady", "Rowing machine steady row", "Cardio", ["Full gym"], "Full-body cardio"),
+  item("cardio-row-interval", "Rowing machine intervals", "Cardio", ["Full gym"], "High intensity"),
+  item("cardio-bike-steady", "Stationary bike", "Cardio", ["Full gym"], "Steady cardio"),
+  item("cardio-bike-interval", "Bike sprint intervals", "Cardio", ["Full gym"], "High intensity"),
+  item("cardio-assault-bike", "Assault bike intervals", "Cardio", ["Full gym"], "Full-body high intensity"),
+  item("cardio-elliptical", "Elliptical trainer", "Cardio", ["Full gym"], "Low-impact cardio"),
+  item("cardio-stairs", "Stair climber", "Cardio", ["Full gym"], "Legs + cardio"),
+  item("cardio-sled", "Sled push intervals", "Cardio", ["Full gym"], "Power conditioning"),
+  item("cardio-battle-ropes", "Battle rope intervals", "Cardio", ["Full gym"], "Upper-body conditioning"),
+  item("cardio-heavy-bag", "Heavy-bag boxing", "Cardio", ["Full gym"], "Boxing conditioning"),
+  item("cardio-shadow-boxing", "Shadow boxing", "Cardio", ["Bodyweight", "Dumbbells", "Full gym"], "Boxing conditioning"),
+  item("cardio-jump-rope", "Jump rope", "Cardio", ["Bodyweight", "Dumbbells", "Full gym"], "High intensity"),
+  item("cardio-high-knees", "High knees", "Cardio", ["Bodyweight", "Dumbbells", "Full gym"], "High intensity"),
+  item("cardio-jumping-jacks", "Jumping jacks", "Cardio", ["Bodyweight", "Dumbbells", "Full gym"], "Cardio"),
+  item("cardio-mountain-climbers", "Mountain climber intervals", "Cardio", ["Bodyweight", "Dumbbells", "Full gym"], "Core + high intensity"),
+  item("cardio-burpees", "Burpee intervals", "Cardio", ["Bodyweight", "Dumbbells", "Full gym"], "Full-body high intensity"),
+  item("cardio-squat-jumps", "Squat jump intervals", "Cardio", ["Bodyweight", "Dumbbells", "Full gym"], "Lower-body high intensity"),
+  item("cardio-skater", "Skater hops", "Cardio", ["Bodyweight", "Dumbbells", "Full gym"], "Lateral conditioning"),
+  item("cardio-fast-feet", "Fast-feet intervals", "Cardio", ["Bodyweight", "Dumbbells", "Full gym"], "High intensity"),
 ];
 
 export function exercisesFor(muscleGroup: MuscleGroup, equipment: ExerciseEquipment) {
