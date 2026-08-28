@@ -6,7 +6,7 @@ import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useAuth } from "@/hooks/use-auth";
 import { DEFAULT_PROFILE_PREFERENCES, loadProfilePreferences, type ProfilePreferences } from "@/lib/profile-preferences";
-import { getWorkoutPlan, loadActiveWorkoutPlan, saveCompletedWorkout, type ActiveWorkoutPlan, type WorkoutSetLog } from "@/lib/workout-log";
+import { getExerciseProgression, getWorkoutPlan, loadActiveWorkoutPlan, loadCompletedWorkouts, saveCompletedWorkout, type ActiveWorkoutPlan, type CompletedWorkout, type WorkoutSetLog } from "@/lib/workout-log";
 
 const mint = "#B8F36B";
 const muted = "#A8B3A6";
@@ -17,6 +17,7 @@ export default function SessionScreen() {
   const userKey = storageKey(user);
   const [profile, setProfile] = useState<ProfilePreferences>(DEFAULT_PROFILE_PREFERENCES);
   const [activePlan, setActivePlan] = useState<ActiveWorkoutPlan | undefined>();
+  const [workoutHistory, setWorkoutHistory] = useState<CompletedWorkout[]>([]);
   const [exerciseIndex, setExerciseIndex] = useState(0);
   const [logs, setLogs] = useState<WorkoutSetLog[][]>([]);
   const [reps, setReps] = useState("");
@@ -25,9 +26,10 @@ export default function SessionScreen() {
   const [finished, setFinished] = useState(false);
 
   useEffect(() => {
-    void Promise.all([loadProfilePreferences(userKey), loadActiveWorkoutPlan(userKey)]).then(([savedProfile, savedPlan]) => {
+    void Promise.all([loadProfilePreferences(userKey), loadActiveWorkoutPlan(userKey), loadCompletedWorkouts(userKey)]).then(([savedProfile, savedPlan, savedHistory]) => {
       setProfile(savedProfile);
       setActivePlan(savedPlan);
+      setWorkoutHistory(savedHistory);
     });
   }, [userKey]);
 
@@ -36,6 +38,12 @@ export default function SessionScreen() {
   const completedForExercise = logs[exerciseIndex] ?? [];
   const nextSetNumber = completedForExercise.length + 1;
   const timedExercise = exercise.tracking === "time";
+  const progression = getExerciseProgression(workoutHistory, exercise);
+
+  useEffect(() => {
+    if (!timedExercise && progression.lastWeightKg !== undefined) setWeight(String(progression.lastWeightKg));
+    else setWeight("");
+  }, [exerciseIndex, progression.lastWeightKg, timedExercise]);
 
   const completeSet = async () => {
     const repValue = Number(reps);
@@ -99,6 +107,12 @@ export default function SessionScreen() {
 
       <View style={styles.formCard}><View style={styles.figure}><IconSymbol name="dumbbell.fill" size={42} color={mint} /></View><Text style={styles.formTitle}>Log what you completed.</Text><Text style={styles.formCopy}>{timedExercise ? "Enter the time you completed. Work at an intensity you can control and recover from safely." : "Use a controlled range that feels stable. Leave weight blank for bodyweight movements."}</Text></View>
 
+      {!timedExercise && progression.lastWeightKg !== undefined ? <View style={styles.progressionCard}>
+        <View style={styles.progressionBody}><Text style={styles.progressionLabel}>LAST TIME</Text><Text style={styles.progressionValue}>{progression.lastWeightKg} kg{progression.lastReps ? ` · at least ${progression.lastReps} reps per set` : ""}</Text>
+        {progression.readyToIncrease && progression.suggestedWeightKg ? <Text style={styles.progressionSuggestion}>Progression ready: consider {progression.suggestedWeightKg} kg</Text> : <Text style={styles.progressionCopy}>Previous weight has been filled in. Build consistency before increasing.</Text>}</View>
+        {progression.suggestedWeightKg ? <Pressable style={styles.useSuggestion} onPress={() => setWeight(String(progression.suggestedWeightKg))}><Text style={styles.useSuggestionText}>Use suggestion</Text></Pressable> : null}
+      </View> : null}
+
       <View style={styles.inputs}>
         <View style={styles.inputGroup}><Text style={styles.inputLabel}>{timedExercise ? "Minutes completed" : "Reps"}</Text><TextInput value={reps} onChangeText={setReps} placeholder={timedExercise ? exercise.repTarget.replace(" min", "") : exercise.repTarget} placeholderTextColor="#718071" keyboardType="number-pad" style={styles.input} /></View>
         {!timedExercise ? <View style={styles.inputGroup}><Text style={styles.inputLabel}>Weight kg (optional)</Text><TextInput value={weight} onChangeText={setWeight} placeholder="0" placeholderTextColor="#718071" keyboardType="decimal-pad" style={styles.input} /></View> : null}
@@ -128,6 +142,14 @@ const styles = StyleSheet.create({
   figure: { width: 72, height: 72, borderRadius: 24, backgroundColor: "#2C3321", alignItems: "center", justifyContent: "center", marginBottom: 15 },
   formTitle: { color: "#F4F7F0", fontSize: 20, fontWeight: "800", textAlign: "center" },
   formCopy: { color: muted, fontSize: 13, lineHeight: 19, textAlign: "center", marginTop: 7 },
+  progressionCard: { flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: "#202A21", borderRadius: 15, padding: 13, borderWidth: 1, borderColor: "#4D653D" },
+  progressionBody: { flex: 1 },
+  progressionLabel: { color: mint, fontSize: 9, fontWeight: "900", letterSpacing: 1 },
+  progressionValue: { color: "#F4F7F0", fontSize: 13, fontWeight: "800", marginTop: 4 },
+  progressionSuggestion: { color: mint, fontSize: 11, fontWeight: "800", marginTop: 4 },
+  progressionCopy: { color: muted, fontSize: 10, marginTop: 4 },
+  useSuggestion: { backgroundColor: "#2C3B25", borderRadius: 10, padding: 9 },
+  useSuggestionText: { color: mint, fontSize: 9, fontWeight: "900" },
   inputs: { flexDirection: "row", gap: 10 },
   inputGroup: { flex: 1, gap: 7 },
   inputLabel: { color: muted, fontSize: 10, fontWeight: "800", letterSpacing: 0.7 },
