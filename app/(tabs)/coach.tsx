@@ -79,7 +79,7 @@ export default function CoachScreen() {
     );
   });
 
-  const ask = (text: string) => {
+  function ask(text: string) {
     const message = text.trim();
     if (!message) return;
     setPrompt(message);
@@ -103,7 +103,7 @@ export default function CoachScreen() {
       equipment: "Dumbbells and bodyweight",
       healthContext: "Only user-approved data is available; do not infer missing values.",
     });
-  };
+  }
 
   const toggleListening = async () => {
     if (listening) {
