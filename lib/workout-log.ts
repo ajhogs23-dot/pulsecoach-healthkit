@@ -104,6 +104,51 @@ export async function saveCompletedWorkout(userKey: string, workout: Omit<Comple
   return next;
 }
 
+export type ExerciseProgression = {
+  lastWeightKg?: number;
+  lastReps?: number;
+  suggestedWeightKg?: number;
+  readyToIncrease: boolean;
+};
+
+const topOfRepRange = (target: string) => {
+  const values = target.match(/\d+/g)?.map(Number) ?? [];
+  return values.length ? Math.max(...values) : undefined;
+};
+
+export function getExerciseProgression(
+  workouts: CompletedWorkout[],
+  exercise: WorkoutExercise,
+): ExerciseProgression {
+  if (exercise.tracking === "time") return { readyToIncrease: false };
+  const performances = [...workouts].reverse().flatMap((workout) => {
+    const match = workout.exercises.find((item) => item.name === exercise.name);
+    if (!match) return [];
+    const weightedSets = match.completedSets.filter((set) => set.weightKg !== undefined && set.reps !== undefined);
+    if (!weightedSets.length) return [];
+    const lastWeightKg = weightedSets[weightedSets.length - 1].weightKg;
+    const lastReps = Math.min(...weightedSets.map((set) => set.reps ?? 0));
+    const repTop = topOfRepRange(exercise.repTarget);
+    const successful = repTop !== undefined && weightedSets.length >= exercise.sets && weightedSets.every((set) => (set.reps ?? 0) >= repTop);
+    return [{ lastWeightKg, lastReps, successful }];
+  });
+
+  const latest = performances[0];
+  if (!latest?.lastWeightKg) return { readyToIncrease: false };
+  const readyToIncrease = performances.length >= 2 && performances[0].successful && performances[1].successful;
+  const rawSuggestion = latest.lastWeightKg * 1.05;
+  const suggestedWeightKg = readyToIncrease
+    ? Math.max(latest.lastWeightKg + 0.5, Math.round(rawSuggestion * 2) / 2)
+    : undefined;
+
+  return {
+    lastWeightKg: latest.lastWeightKg,
+    lastReps: latest.lastReps,
+    suggestedWeightKg,
+    readyToIncrease,
+  };
+}
+
 export function todayCompletedWorkouts(workouts: CompletedWorkout[], reference = new Date()) {
   const start = new Date(reference);
   start.setHours(0, 0, 0, 0);
