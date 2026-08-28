@@ -1,4 +1,6 @@
 import { loadPersistentUserData, removePersistentUserData, savePersistentUserData } from "@/lib/persistent-user-data";
+import { healthStorageKey } from "@/lib/health-storage";
+export { healthStorageKey } from "@/lib/health-storage";
 import { Platform } from "react-native";
 import * as HealthKit from "@kingstinct/react-native-healthkit";
 import { averageSamples, bucketSamples, localDayBounds, makeDayBuckets, mergeIncrementalSamples, sumSamples, type HealthSample, type MovementSummary } from "@/lib/health-aggregation";
@@ -13,7 +15,6 @@ export type HealthDiagnostics = { enabledCategories: HealthCategory[]; lastAttem
 export type HealthSyncSnapshot = { status: HealthSyncStatus; preferences: HealthPreferences; diagnostics: HealthDiagnostics; summary?: MovementSummary; stepsHistory?: ReturnType<typeof bucketSamples>; distanceHistory?: ReturnType<typeof bucketSamples>; energyHistory?: ReturnType<typeof bucketSamples>; lastSyncedAt?: string; errorMessage?: string };
 type Stored = HealthSyncSnapshot & { anchors?: Partial<Record<HealthCategory, string>>; samples?: Partial<Record<HealthCategory, HealthSample[]>> };
 type Increment = { anchor: string; rows: HealthSample[]; deleted: string[] };
-export const healthStorageKey = (userKey: string) => `pulsecoach.healthkit.${userKey}`;
 const enabled = (p: HealthPreferences) => (Object.keys(p) as HealthCategory[]).filter((key) => p[key]);
 const dateOf = (value: Date | string) => value instanceof Date ? value : new Date(value);
 const blank = (preferences = DEFAULT_HEALTH_PREFERENCES): HealthSyncSnapshot => ({ status: "not_setup", preferences, diagnostics: { enabledCategories: enabled(preferences), recordsReceived: 0 } });
