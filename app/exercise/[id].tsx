@@ -48,7 +48,7 @@ export default function ExerciseDetailScreen() {
   const exercise = useMemo(() => EXERCISE_LIBRARY.find((item) => item.id === exerciseId), [exerciseId]);
   const [media, setMedia] = useState<ExerciseMedia | undefined>();
   const [loading, setLoading] = useState(true);
-  const player = useVideoPlayer(media?.videoUrl ? { uri: media.videoUrl } : null, (videoPlayer) => {
+  const player = useVideoPlayer(media?.videoUrl ? { uri: media.videoUrl, useCaching: true } : null, (videoPlayer) => {
     videoPlayer.loop = true;
   });
 
