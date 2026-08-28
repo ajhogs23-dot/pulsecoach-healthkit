@@ -31,6 +31,18 @@ export const supplementSchedules = mysqlTable("supplement_schedules", { id: int(
 
 export const challenges = mysqlTable("challenges", { id: int("id").autoincrement().primaryKey(), creatorId: int("creatorId").notNull(), title: varchar("title", { length: 160 }).notNull(), metric: varchar("metric", { length: 50 }).notNull(), duration: mysqlEnum("duration", ["day", "week", "month"]).notNull(), blind: boolean("blind").default(true).notNull(), startsAt: timestamp("startsAt").notNull(), endsAt: timestamp("endsAt").notNull(), createdAt: timestamp("createdAt").defaultNow().notNull() }, (t) => ({ creatorIdx: index("challenges_creator_idx").on(t.creatorId), endsIdx: index("challenges_ends_idx").on(t.endsAt) }));
 export const challengeParticipants = mysqlTable("challenge_participants", { id: int("id").autoincrement().primaryKey(), challengeId: int("challengeId").notNull(), userId: int("userId").notNull(), status: mysqlEnum("status", ["invited", "accepted", "declined"]).default("invited").notNull(), finalScore: int("finalScore"), createdAt: timestamp("createdAt").defaultNow().notNull() }, (t) => ({ participantIdx: uniqueIndex("challenge_participant_idx").on(t.challengeId, t.userId) }));
+export const userData = mysqlTable("user_data", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  namespace: varchar("namespace", { length: 80 }).notNull(),
+  payloadJson: text("payloadJson").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (t) => ({
+  ownerNamespaceIdx: uniqueIndex("user_data_owner_namespace_idx").on(t.userId, t.namespace),
+  ownerIdx: index("user_data_owner_idx").on(t.userId),
+}));
+
 export const feedback = mysqlTable("feedback", { id: int("id").autoincrement().primaryKey(), userId: int("userId").notNull(), category: mysqlEnum("category", ["feature", "issue", "change"]).notNull(), message: text("message").notNull(), contactAllowed: boolean("contactAllowed").default(false).notNull(), status: mysqlEnum("status", ["new", "reviewing", "planned", "closed"]).default("new").notNull(), createdAt: timestamp("createdAt").defaultNow().notNull() }, (t) => ({ userIdx: index("feedback_user_idx").on(t.userId), statusIdx: index("feedback_status_idx").on(t.status) }));
 
-export type Profile = typeof profiles.$inferSelect; export type Goal = typeof goals.$inferSelect; export type Friendship = typeof friendships.$inferSelect; export type WorkoutSession = typeof workoutSessions.$inferSelect; export type Feedback = typeof feedback.$inferSelect;
+export type UserData = typeof userData.$inferSelect; export type Profile = typeof profiles.$inferSelect; export type Goal = typeof goals.$inferSelect; export type Friendship = typeof friendships.$inferSelect; export type WorkoutSession = typeof workoutSessions.$inferSelect; export type Feedback = typeof feedback.$inferSelect;
