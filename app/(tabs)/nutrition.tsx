@@ -5,7 +5,7 @@ import { router, useFocusEffect } from "expo-router";
 import { Image } from "expo-image";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useAuth } from "@/hooks/use-auth";
-import { addFoodLog, loadFoodLog, removeFoodLog, summariseFoodLog, todayFoodLog, type FoodLogEntry, type FoodNutrition, type MealName } from "@/lib/food-log";
+import { addFoodLog, loadFoodLog, removeFoodLog, summariseFoodLog, todayFoodLog, type FoodLogEntry, type MealName } from "@/lib/food-log";
 import { calculateCalorieEstimate, DEFAULT_PROFILE_PREFERENCES, loadProfilePreferences, type ProfilePreferences } from "@/lib/profile-preferences";
 import { commonFoods, searchOpenFoodFacts, type CatalogueItem } from "@/lib/food-catalogue";
 import { foodAmountLabel, parseFoodServing, servingMultiplier } from "@/lib/food-serving";
