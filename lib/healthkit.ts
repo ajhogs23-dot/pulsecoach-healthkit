@@ -1,6 +1,8 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Platform } from "react-native";
 import * as HealthKit from "@kingstinct/react-native-healthkit";
+import { healthStorageKey } from "@/lib/health-storage";
+export { healthStorageKey } from "@/lib/health-storage";
 import { averageSamples, bucketSamples, localDayBounds, makeDayBuckets, mergeIncrementalSamples, sumSamples, type HealthSample, type MovementSummary } from "@/lib/health-aggregation";
 export const HEALTH_CATEGORIES = {
   steps: { label: "Steps", identifier: "HKQuantityTypeIdentifierStepCount", unit: "count" }, distance: { label: "Walking/running distance", identifier: "HKQuantityTypeIdentifierDistanceWalkingRunning", unit: "m" }, energy: { label: "Active energy", identifier: "HKQuantityTypeIdentifierActiveEnergyBurned", unit: "kcal" }, exercise: { label: "Exercise time", identifier: "HKQuantityTypeIdentifierAppleExerciseTime", unit: "min" }, workouts: { label: "Workouts", identifier: "HKWorkoutTypeIdentifier", unit: "min" }, heartRate: { label: "Heart-rate summaries", identifier: "HKQuantityTypeIdentifierHeartRate", unit: "count/min" }, weight: { label: "Weight/body mass", identifier: "HKQuantityTypeIdentifierBodyMass", unit: "kg" }, sleep: { label: "Sleep (optional)", identifier: "HKCategoryTypeIdentifierSleepAnalysis", unit: "min" },
@@ -13,7 +15,6 @@ export type HealthDiagnostics = { enabledCategories: HealthCategory[]; lastAttem
 export type HealthSyncSnapshot = { status: HealthSyncStatus; preferences: HealthPreferences; diagnostics: HealthDiagnostics; summary?: MovementSummary; stepsHistory?: ReturnType<typeof bucketSamples>; distanceHistory?: ReturnType<typeof bucketSamples>; energyHistory?: ReturnType<typeof bucketSamples>; lastSyncedAt?: string; errorMessage?: string };
 type Stored = HealthSyncSnapshot & { anchors?: Partial<Record<HealthCategory, string>>; samples?: Partial<Record<HealthCategory, HealthSample[]>> };
 type Increment = { anchor: string; rows: HealthSample[]; deleted: string[] };
-export const healthStorageKey = (userKey: string) => `pulsecoach.healthkit.${userKey}`;
 const enabled = (p: HealthPreferences) => (Object.keys(p) as HealthCategory[]).filter((key) => p[key]);
 const dateOf = (value: Date | string) => value instanceof Date ? value : new Date(value);
 const blank = (preferences = DEFAULT_HEALTH_PREFERENCES): HealthSyncSnapshot => ({ status: "not_setup", preferences, diagnostics: { enabledCategories: enabled(preferences), recordsReceived: 0 } });

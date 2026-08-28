@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { router } from "expo-router";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import {
   ExpoSpeechRecognitionModule,
@@ -8,6 +9,7 @@ import {
 import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { trpc } from "@/lib/trpc";
+import { workoutFocusFromPrompt } from "@/lib/coach-intents";
 
 const mint = "#B8F36B";
 const muted = "#A8B3A6";
@@ -44,11 +46,12 @@ export default function CoachScreen() {
     if (!transcript) return;
 
     setPrompt(transcript);
-    setRecognitionMessage(
-      event.isFinal
-        ? "Ready to edit or submit your recognized prompt."
-        : "Hearing you… you can keep speaking or stop when ready.",
-    );
+    if (event.isFinal) {
+      setRecognitionMessage("Voice command recognized.");
+      ask(transcript);
+    } else {
+      setRecognitionMessage("Hearing you… you can keep speaking or stop when ready.");
+    }
   });
 
   useSpeechRecognitionEvent("end", () => {
@@ -76,10 +79,19 @@ export default function CoachScreen() {
     );
   });
 
-  const ask = (text: string) => {
+  function ask(text: string) {
     const message = text.trim();
     if (!message) return;
     setPrompt(message);
+    const workoutFocus = workoutFocusFromPrompt(message);
+    if (workoutFocus) {
+      setReply(`Great—let’s build a ${workoutFocus.toLowerCase()} workout for today.`);
+      setRecognitionMessage("");
+      if (listening) ExpoSpeechRecognitionModule.stop();
+      setListening(false);
+      router.push({ pathname: "/(tabs)/workout", params: { focus: workoutFocus } } as any);
+      return;
+    }
     setReply("Thinking through the most useful next step…");
     setRecognitionMessage("");
     if (listening) ExpoSpeechRecognitionModule.stop();
@@ -91,7 +103,7 @@ export default function CoachScreen() {
       equipment: "Dumbbells and bodyweight",
       healthContext: "Only user-approved data is available; do not infer missing values.",
     });
-  };
+  }
 
   const toggleListening = async () => {
     if (listening) {
