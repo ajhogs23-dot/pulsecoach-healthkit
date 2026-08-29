@@ -11,6 +11,7 @@ export type CatalogueItem = {
   country?: string;
   stores?: string;
   categories?: string[];
+  nutritionAvailable?: boolean;
   nutrition: FoodNutrition;
 };
 
@@ -90,7 +91,7 @@ const productScore = (product: any, term: string) => {
   return score;
 };
 
-export const catalogueItemsFromResponse = (data: { hits?: any[]; products?: any[] }, term = ""): CatalogueItem[] =>
+export const catalogueItemsFromResponse = (data: { hits?: any[]; products?: any[] }, term = "", options: { requireCalories?: boolean } = {}): CatalogueItem[] =>
   (data.hits ?? data.products ?? [])
     .filter((product) => product && typeof product === "object")
     .sort((a, b) => productScore(b, term) - productScore(a, term))
@@ -100,11 +101,11 @@ export const catalogueItemsFromResponse = (data: { hits?: any[]; products?: any[
       const rawCalories = n["energy-kcal_100g"];
       const hasCalories = typeof rawCalories === "number" && Number.isFinite(rawCalories);
       const calories100g = num(rawCalories);
-      if (!name || !hasCalories) return [];
+      if (!name || ((options.requireCalories ?? true) && !hasCalories)) return [];
       const servingText = text(product.serving_size);
       const servingGrams = Number.parseFloat(servingText);
       const factor = Number.isFinite(servingGrams) && servingGrams > 0 ? servingGrams / 100 : 1;
-      const label = factor === 1 ? "100 g" : servingText;
+      const label = servingText || (hasCalories ? "100 g" : "Serving not supplied");
       const country = isAustralianProduct(product) ? "Australia" : text(product.countries).split(",")[0] || undefined;
       const categories = Array.isArray(product.categories_tags) ? product.categories_tags.map(text).filter(Boolean) : [];
       return [{
@@ -112,12 +113,13 @@ export const catalogueItemsFromResponse = (data: { hits?: any[]; products?: any[
         barcode: text(product.code) || undefined,
         name,
         brand: text(product.brands).split(",")[0] || "Packaged product",
-        detail: `${label} · ${Math.round(calories100g * factor)} kcal`,
+        detail: hasCalories ? `${label} · ${Math.round(calories100g * factor)} kcal` : `${label} · confirm label`,
         source: country === "Australia" ? "Open Food Facts · Australia" : "Open Food Facts",
         imageUrl: text(product.image_front_small_url || product.image_small_url || product.image_front_url) || undefined,
         country,
         stores: text(product.stores) || undefined,
         categories,
+        nutritionAvailable: hasCalories,
         nutrition: nutrition(
           calories100g * factor,
           num(n.proteins_100g) * factor,
@@ -136,7 +138,7 @@ const fields = [
   "countries", "countries_tags", "stores", "categories_tags",
 ].join(",");
 
-export async function searchOpenFoodFacts(query: string, signal?: AbortSignal): Promise<CatalogueItem[]> {
+export async function searchOpenFoodFacts(query: string, signal?: AbortSignal, options: { requireCalories?: boolean } = {}): Promise<CatalogueItem[]> {
   const term = query.trim();
   if (term.length < 2) return [];
 
@@ -154,7 +156,7 @@ export async function searchOpenFoodFacts(query: string, signal?: AbortSignal): 
       }),
     });
     if (primary.ok) {
-      const results = catalogueItemsFromResponse(await primary.json(), term);
+      const results = catalogueItemsFromResponse(await primary.json(), term, options);
       if (results.length) return results.slice(0, 50);
     }
   } catch (error) {
@@ -174,7 +176,7 @@ export async function searchOpenFoodFacts(query: string, signal?: AbortSignal): 
     headers: { Accept: "application/json" },
   });
   if (!fallback.ok) throw new Error("Food catalogue unavailable");
-  return catalogueItemsFromResponse(await fallback.json(), term).slice(0, 50);
+  return catalogueItemsFromResponse(await fallback.json(), term, options).slice(0, 50);
 }
 
 export const isLikelySupplement = (item: CatalogueItem) => {
@@ -183,7 +185,7 @@ export const isLikelySupplement = (item: CatalogueItem) => {
 };
 
 export async function searchSupplementProducts(query: string, signal?: AbortSignal): Promise<CatalogueItem[]> {
-  const results = await searchOpenFoodFacts(query, signal);
+  const results = await searchOpenFoodFacts(query, signal, { requireCalories: false });
   const supplementMatches = results.filter(isLikelySupplement);
   return (supplementMatches.length ? supplementMatches : results).slice(0, 30);
 }
