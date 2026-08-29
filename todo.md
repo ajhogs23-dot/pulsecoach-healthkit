@@ -352,3 +352,14 @@
 ## Movement and Apple Health navigation
 
 - [x] Separate Movement from Apple Health settings; route Movement to Activity and add Profile → Settings → Apple Health management.
+
+
+## Live food and supplement catalogue phase 1
+
+- [x] Rank Australian Open Food Facts matches ahead of global products
+- [x] Use live catalogue search in both Nutrition and Supplements
+- [x] Display product image, brand, serving nutrition, source, and retailer metadata where available
+- [x] Filter products without usable names or calorie data instead of inventing values
+- [x] Add deterministic catalogue ranking, serving, filtering, and supplement classification tests
+- [ ] Connect an additional authoritative generic-food source and a specialist supplement-label source
+- [ ] Add persistent favourites, recent searches, cabinet inventory, and confirmed product history
