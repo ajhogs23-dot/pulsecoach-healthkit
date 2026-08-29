@@ -2,8 +2,10 @@ import { useCallback, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { router, useFocusEffect } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
+import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useAuth } from "@/hooks/use-auth";
 import { trpc } from "@/lib/trpc";
+import { loadHealthSnapshot, type HealthSyncSnapshot } from "@/lib/healthkit";
 import { calculateCalorieEstimate, DEFAULT_PROFILE_PREFERENCES, loadProfilePreferences, saveProfilePreferences, type ActivityLevel, type EstimateSex, type ProfilePreferences, type ProfileGoal } from "@/lib/profile-preferences";
 
 const mint = "#B8F36B";
@@ -14,6 +16,7 @@ export default function ProfileScreen() {
   const { user } = useAuth({ autoFetch: false });
   const userKey = storageKey(user);
   const [profile, setProfile] = useState<ProfilePreferences>(DEFAULT_PROFILE_PREFERENCES);
+  const [health, setHealth] = useState<HealthSyncSnapshot | null>(null);
   const [age, setAge] = useState("");
   const [heightCm, setHeightCm] = useState("");
   const [weightKg, setWeightKg] = useState("");
@@ -30,13 +33,16 @@ export default function ProfileScreen() {
 
   useFocusEffect(useCallback(() => {
     let active = true;
-    void loadProfilePreferences(userKey).then((saved) => {
+    void Promise.all([loadProfilePreferences(userKey), loadHealthSnapshot(userKey)]).then(([saved, healthSnapshot]) => {
       if (!active) return;
       setProfile(saved);
+      setHealth(healthSnapshot);
       setAge(saved.age ? String(saved.age) : "");
       setHeightCm(saved.heightCm ? String(saved.heightCm) : "");
       setWeightKg(saved.weightKg ? String(saved.weightKg) : "");
       setCalorieTarget(saved.calorieTarget ? String(saved.calorieTarget) : "");
+    }).catch(() => {
+      if (active) setHealth(null);
     });
     return () => { active = false; };
   }, [userKey]));
@@ -119,6 +125,18 @@ export default function ProfileScreen() {
       <Pressable style={({ pressed }) => [styles.saveButton, pressed && styles.pressed]} onPress={() => void save()}><Text style={styles.saveText}>Save profile</Text></Pressable>
       {savedMessage ? <Text style={savedMessage === "Profile saved." ? styles.success : styles.warning}>{savedMessage}</Text> : null}
 
+      <View style={styles.settingsGroup}>
+        <Text style={styles.groupTitle}>Settings</Text>
+        <Pressable style={({ pressed }) => [styles.settingsCard, pressed && styles.pressed]} onPress={() => router.push("/health")}>
+          <View style={styles.settingsIcon}><IconSymbol name="heart.text.square.fill" size={23} color={mint} /></View>
+          <View style={styles.settingsBody}>
+            <Text style={styles.settingsTitle}>Apple Health</Text>
+            <Text style={styles.settingsCopy}>{health?.status === "connected" || health?.lastSyncedAt ? "Connected · Manage categories and sync" : "Not connected · Set up Apple Health"}</Text>
+          </View>
+          <IconSymbol name="chevron.right" size={19} color={muted} />
+        </Pressable>
+      </View>
+
       <View style={styles.feedback}>
         <Text style={styles.feedbackTitle}>Help shape PulseCoach</Text>
         <Text style={styles.feedbackCopy}>Suggest a feature, report an issue, or tell us what would make coaching more useful.</Text>
@@ -162,6 +180,12 @@ const styles = StyleSheet.create({
   saveText: { color: "#111513", fontWeight: "900" },
   success: { color: mint, fontSize: 12, fontWeight: "800" },
   warning: { color: "#FFD166", fontSize: 12, fontWeight: "700" },
+  settingsGroup: { gap: 10, marginTop: 4 },
+  settingsCard: { flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: "#202A21", borderRadius: 18, padding: 14, borderWidth: 1, borderColor: "#354536" },
+  settingsIcon: { width: 42, height: 42, borderRadius: 14, backgroundColor: "#2B3B27", alignItems: "center", justifyContent: "center" },
+  settingsBody: { flex: 1 },
+  settingsTitle: { color: "#F4F7F0", fontSize: 15, fontWeight: "800" },
+  settingsCopy: { color: muted, fontSize: 11, lineHeight: 16, marginTop: 3 },
   feedback: { backgroundColor: "#202A21", borderRadius: 18, padding: 15, borderWidth: 1, borderColor: "#354536", gap: 10, marginTop: 4 },
   feedbackTitle: { color: "#F4F7F0", fontSize: 16, fontWeight: "800" },
   feedbackCopy: { color: muted, fontSize: 11, lineHeight: 16 },

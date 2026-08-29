@@ -112,7 +112,7 @@ export default function HomeScreen() {
           <Pressable onPress={() => router.push("/activity" as any)}><Text style={styles.link}>View activity</Text></Pressable>
         </View>
         <View style={styles.metricGrid}>
-          <Metric icon="figure.walk" label="Movement" value={summary?.steps === undefined ? "—" : Math.round(summary.steps).toLocaleString("en-AU")} note={connected ? "steps from Apple Health" : "Connect Apple Health"} onPress={() => router.push("/health")} />
+          <Metric icon="figure.walk" label="Movement" value={summary?.steps === undefined ? "—" : Math.round(summary.steps).toLocaleString("en-AU")} note={connected ? "steps from Apple Health" : "Connect Apple Health"} onPress={() => router.push("/activity" as any)} />
           <Metric icon="flame.fill" label="Active energy" value={hasActiveEnergy ? `${Math.round(totalActiveEnergy)} kcal` : "—"} note={manualSummary.calories > 0 ? "Health + manual entries" : connected ? "from Apple Health" : "No data yet"} onPress={() => router.push("/activity" as any)} />
           <Metric icon="fork.knife" label="Nutrition" value={foodsLoggedToday ? `${Math.round(nutritionSummary.calories)} kcal` : "Start"} note={foodsLoggedToday ? `${foodsLoggedToday} food entr${foodsLoggedToday === 1 ? "y" : "ies"} today` : "Build your first meal"} onPress={() => router.push("/nutrition")} />
           <Metric icon="dumbbell.fill" label="Training" value={workoutsToday.length ? "Done" : "Ready"} note={workoutsToday.length ? `${workoutsToday.length} workout${workoutsToday.length === 1 ? "" : "s"} completed` : `${workoutPlan.durationMinutes} min ${workoutPlan.title.toLowerCase()}`} onPress={() => router.push("/workout")} />
