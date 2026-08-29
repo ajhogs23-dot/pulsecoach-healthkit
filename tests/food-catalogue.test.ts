@@ -22,6 +22,15 @@ describe("live catalogue mapping", () => {
     expect(results).toEqual([]);
   });
 
+  it("keeps label-only supplement products while nutrition search stays strict", () => {
+    const payload = { products: [{ code: "supp-1", product_name: "Creatine monohydrate", brands: "Sports Lab", nutriments: {} }] };
+    expect(catalogueItemsFromResponse(payload, "creatine")).toEqual([]);
+    const [supplement] = catalogueItemsFromResponse(payload, "creatine", { requireCalories: false });
+    expect(supplement.name).toBe("Creatine monohydrate");
+    expect(supplement.nutritionAvailable).toBe(false);
+    expect(supplement.detail).toContain("confirm label");
+  });
+
   it("scales label nutrition to a supplied serving size", () => {
     const [result] = catalogueItemsFromResponse({ products: [{
       code: "3",
