@@ -7,6 +7,10 @@ export type CatalogueItem = {
   detail: string;
   source: string;
   imageUrl?: string;
+  barcode?: string;
+  country?: string;
+  stores?: string;
+  categories?: string[];
   nutrition: FoodNutrition;
 };
 
@@ -61,73 +65,107 @@ export const commonFoods: CatalogueItem[] = [
 
 const num = (value: unknown) => typeof value === "number" && Number.isFinite(value) ? value : 0;
 
-const productsFromResponse = (data: { hits?: any[]; products?: any[] }): CatalogueItem[] =>
-  (data.hits ?? data.products ?? []).flatMap((product): CatalogueItem[] => {
-    const name = String(product.product_name ?? product.product_name_en ?? "").trim();
-    const n = product.nutriments ?? {};
-    const rawCalories = n["energy-kcal_100g"];
-    const hasCalories = typeof rawCalories === "number" && Number.isFinite(rawCalories);
-    const calories100g = num(rawCalories);
-    if (!name || !hasCalories) return [];
-    const servingText = String(product.serving_size ?? "").trim();
-    const servingGrams = Number.parseFloat(servingText);
-    const factor = Number.isFinite(servingGrams) && servingGrams > 0 ? servingGrams / 100 : 1;
-    const label = factor === 1 ? "100 g" : servingText;
-    return [{
-      id: `off-${product.code ?? name}-${String(product.brands ?? "")}`,
-      name,
-      brand: String(product.brands ?? "Packaged product").split(",")[0].trim() || "Packaged product",
-      detail: `${label} · ${Math.round(calories100g * factor)} kcal`,
-      source: "Open Food Facts",
-      imageUrl: String(product.image_front_small_url ?? product.image_small_url ?? product.image_front_url ?? "").trim() || undefined,
-      nutrition: nutrition(
-        calories100g * factor,
-        num(n.proteins_100g) * factor,
-        num(n.carbohydrates_100g) * factor,
-        num(n.fat_100g) * factor,
-        num(n.fiber_100g) * factor,
-        num(n.sugars_100g) * factor,
-        num(n.sodium_100g) * 1000 * factor,
-      ),
-    }];
-  });
+const text = (value: unknown) => String(value ?? "").trim();
+
+const isAustralianProduct = (product: any) => {
+  const countries = [
+    ...(Array.isArray(product.countries_tags) ? product.countries_tags : []),
+    text(product.countries),
+  ].join(" ").toLowerCase();
+  const stores = text(product.stores).toLowerCase();
+  return countries.includes("australia") || /woolworths|coles|aldi|iga/.test(stores);
+};
+
+const productScore = (product: any, term: string) => {
+  const name = text(product.product_name || product.product_name_en).toLowerCase();
+  const brand = text(product.brands).toLowerCase();
+  const query = term.toLowerCase();
+  let score = isAustralianProduct(product) ? 100 : 0;
+  if (name === query) score += 60;
+  else if (name.startsWith(query)) score += 35;
+  else if (name.includes(query)) score += 20;
+  if (brand.includes(query)) score += 10;
+  if (text(product.image_front_small_url || product.image_small_url || product.image_front_url)) score += 5;
+  if (text(product.serving_size)) score += 5;
+  return score;
+};
+
+export const catalogueItemsFromResponse = (data: { hits?: any[]; products?: any[] }, term = ""): CatalogueItem[] =>
+  (data.hits ?? data.products ?? [])
+    .filter((product) => product && typeof product === "object")
+    .sort((a, b) => productScore(b, term) - productScore(a, term))
+    .flatMap((product): CatalogueItem[] => {
+      const name = text(product.product_name || product.product_name_en);
+      const n = product.nutriments ?? {};
+      const rawCalories = n["energy-kcal_100g"];
+      const hasCalories = typeof rawCalories === "number" && Number.isFinite(rawCalories);
+      const calories100g = num(rawCalories);
+      if (!name || !hasCalories) return [];
+      const servingText = text(product.serving_size);
+      const servingGrams = Number.parseFloat(servingText);
+      const factor = Number.isFinite(servingGrams) && servingGrams > 0 ? servingGrams / 100 : 1;
+      const label = factor === 1 ? "100 g" : servingText;
+      const country = isAustralianProduct(product) ? "Australia" : text(product.countries).split(",")[0] || undefined;
+      const categories = Array.isArray(product.categories_tags) ? product.categories_tags.map(text).filter(Boolean) : [];
+      return [{
+        id: `off-${product.code ?? name}-${text(product.brands)}`,
+        barcode: text(product.code) || undefined,
+        name,
+        brand: text(product.brands).split(",")[0] || "Packaged product",
+        detail: `${label} · ${Math.round(calories100g * factor)} kcal`,
+        source: country === "Australia" ? "Open Food Facts · Australia" : "Open Food Facts",
+        imageUrl: text(product.image_front_small_url || product.image_small_url || product.image_front_url) || undefined,
+        country,
+        stores: text(product.stores) || undefined,
+        categories,
+        nutrition: nutrition(
+          calories100g * factor,
+          num(n.proteins_100g) * factor,
+          num(n.carbohydrates_100g) * factor,
+          num(n.fat_100g) * factor,
+          num(n.fiber_100g) * factor,
+          num(n.sugars_100g) * factor,
+          num(n.sodium_100g) * 1000 * factor,
+        ),
+      }];
+    });
+
+const fields = [
+  "code", "product_name", "product_name_en", "brands", "serving_size", "quantity",
+  "nutriments", "image_front_small_url", "image_small_url", "image_front_url",
+  "countries", "countries_tags", "stores", "categories_tags",
+].join(",");
 
 export async function searchOpenFoodFacts(query: string, signal?: AbortSignal): Promise<CatalogueItem[]> {
   const term = query.trim();
   if (term.length < 2) return [];
-
-  try {
-    const response = await fetch("https://search.openfoodfacts.org/search", {
-      method: "POST",
-      signal,
-      headers: { Accept: "application/json", "Content-Type": "application/json" },
-      body: JSON.stringify({
-        q: term,
-        langs: ["en"],
-        page: 1,
-        page_size: 50,
-        fields: ["code", "product_name", "product_name_en", "brands", "serving_size", "nutriments", "image_front_small_url", "image_small_url", "image_front_url"],
-      }),
-    });
-    if (!response.ok) throw new Error("Primary catalogue unavailable");
-    const results = productsFromResponse(await response.json());
-    if (results.length) return results;
-  } catch (error) {
-    if (error instanceof Error && error.name === "AbortError") throw error;
-  }
 
   const params = new URLSearchParams({
     search_terms: term,
     search_simple: "1",
     action: "process",
     json: "1",
-    page_size: "50",
-    fields: "code,product_name,product_name_en,brands,serving_size,nutriments,image_front_small_url,image_small_url,image_front_url",
+    page_size: "100",
+    fields,
   });
-  const fallback = await fetch(`https://world.openfoodfacts.org/cgi/search.pl?${params.toString()}`, {
+  const response = await fetch(`https://world.openfoodfacts.org/cgi/search.pl?${params.toString()}`, {
     signal,
-    headers: { Accept: "application/json" },
+    headers: {
+      Accept: "application/json",
+      "User-Agent": "PulseCoach/1.0 (food and supplement search)",
+    },
   });
-  if (!fallback.ok) throw new Error("Food catalogue unavailable");
-  return productsFromResponse(await fallback.json());
+  if (!response.ok) throw new Error("Food catalogue unavailable");
+  return catalogueItemsFromResponse(await response.json(), term).slice(0, 50);
+}
+
+export const isLikelySupplement = (item: CatalogueItem) => {
+  const value = [item.name, item.brand, ...(item.categories ?? [])].join(" ").toLowerCase();
+  return /protein|whey|casein|creatine|supplement|pre-workout|post-workout|electrolyte|amino|bcaa|meal-replacement|mass-gainer/.test(value);
+};
+
+export async function searchSupplementProducts(query: string, signal?: AbortSignal): Promise<CatalogueItem[]> {
+  const results = await searchOpenFoodFacts(query, signal);
+  const supplementMatches = results.filter(isLikelySupplement);
+  return (supplementMatches.length ? supplementMatches : results).slice(0, 30);
 }
