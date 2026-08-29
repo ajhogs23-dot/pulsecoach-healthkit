@@ -140,6 +140,27 @@ export async function searchOpenFoodFacts(query: string, signal?: AbortSignal): 
   const term = query.trim();
   if (term.length < 2) return [];
 
+  try {
+    const primary = await fetch("https://search.openfoodfacts.org/search", {
+      method: "POST",
+      signal,
+      headers: { Accept: "application/json", "Content-Type": "application/json" },
+      body: JSON.stringify({
+        q: term,
+        langs: ["en"],
+        page: 1,
+        page_size: 100,
+        fields: fields.split(","),
+      }),
+    });
+    if (primary.ok) {
+      const results = catalogueItemsFromResponse(await primary.json(), term);
+      if (results.length) return results.slice(0, 50);
+    }
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") throw error;
+  }
+
   const params = new URLSearchParams({
     search_terms: term,
     search_simple: "1",
@@ -148,15 +169,12 @@ export async function searchOpenFoodFacts(query: string, signal?: AbortSignal): 
     page_size: "100",
     fields,
   });
-  const response = await fetch(`https://world.openfoodfacts.org/cgi/search.pl?${params.toString()}`, {
+  const fallback = await fetch(`https://world.openfoodfacts.org/cgi/search.pl?${params.toString()}`, {
     signal,
-    headers: {
-      Accept: "application/json",
-      "User-Agent": "PulseCoach/1.0 (food and supplement search)",
-    },
+    headers: { Accept: "application/json" },
   });
-  if (!response.ok) throw new Error("Food catalogue unavailable");
-  return catalogueItemsFromResponse(await response.json(), term).slice(0, 50);
+  if (!fallback.ok) throw new Error("Food catalogue unavailable");
+  return catalogueItemsFromResponse(await fallback.json(), term).slice(0, 50);
 }
 
 export const isLikelySupplement = (item: CatalogueItem) => {
