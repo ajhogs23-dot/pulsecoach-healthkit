@@ -347,3 +347,8 @@
 - [x] Reach 18/18 Expo Doctor checks before any build
 - [x] Run TypeScript, lint, full tests, and HealthKit aggregation/deduplication tests
 - [x] Do not start EAS Build
+
+
+## Movement and Apple Health navigation
+
+- [x] Separate Movement from Apple Health settings; route Movement to Activity and add Profile → Settings → Apple Health management.
