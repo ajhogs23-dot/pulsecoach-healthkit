@@ -102,23 +102,24 @@ export default function NutritionScreen() {
     setServingFeedback("");
   };
 
-  const addSuggestion = async () => {
-    if (!selectedFood) return;
-    const amount = Number(servingAmount);
-    const serving = parseFoodServing(selectedFood.detail);
+  const addSuggestion = async (itemToAdd?: CatalogueItem) => {
+    const item = itemToAdd ?? selectedFood;
+    if (!item) return;
+    const serving = parseFoodServing(item.detail);
+    const amount = itemToAdd ? serving.baseQuantity : Number(servingAmount);
     const servings = servingMultiplier(amount, serving);
     if (!Number.isFinite(amount) || amount <= 0 || servings <= 0) {
       setServingFeedback("Enter an amount greater than zero.");
       return;
     }
     const updated = await addFoodLog(userKey, {
-      name: selectedFood.name,
+      name: item.name,
       meal: selectedMeal,
       servings,
       amount,
       unit: serving.unit,
       servingDescription: serving.label,
-      nutrition: selectedFood.nutrition,
+      nutrition: item.nutrition,
     });
     setEntries(updated);
     setSelectedFood(null);
@@ -190,7 +191,7 @@ export default function NutritionScreen() {
         <Pressable style={styles.recipe} onPress={() => void saveManualFood()}><Text style={styles.recipeText}>Save custom food</Text></Pressable>
       </View> : null}
 
-      <View style={styles.suggestions}><Text style={styles.suggestionTitle}>{query.length ? "Suggested matches" : "Quick add"}</Text>{catalogueLoading ? <Text style={styles.searchStatus}>Searching the full supermarket catalogue…</Text> : null}{catalogueMessage ? <Text style={styles.empty}>{catalogueMessage}</Text> : null}{suggestions.length ? suggestions.map((item) => <Pressable key={item.id} style={styles.suggestion} onPress={() => selectSuggestion(item)}>{item.imageUrl ? <Image source={{ uri: item.imageUrl }} style={styles.foodImage} contentFit="contain" transition={150} /> : <View style={styles.foodIcon}><Text style={styles.foodMark}>{item.name[0]}</Text></View>}<View style={{ flex: 1 }}><Text style={styles.foodName}>{item.name}</Text><Text style={styles.foodMeta}>{item.brand} · {item.detail}</Text><Text style={styles.foodSource}>{item.source}</Text></View><Text style={styles.add}>Add</Text></Pressable>) : <Text style={styles.empty}>No match yet. Keep typing, scan the barcode, or add it as a custom food.</Text>}</View>
+      <View style={styles.suggestions}><Text style={styles.suggestionTitle}>{query.length ? "Suggested matches" : "Quick add"}</Text>{catalogueLoading ? <Text style={styles.searchStatus}>Searching the full supermarket catalogue…</Text> : null}{catalogueMessage ? <Text style={styles.empty}>{catalogueMessage}</Text> : null}{suggestions.length ? suggestions.map((item) => <Pressable key={item.id} style={styles.suggestion} onPress={() => void addSuggestion(item)} onLongPress={() => selectSuggestion(item)} accessibilityRole="button" accessibilityLabel={`Add ${item.name} to ${selectedMeal}`}>{item.imageUrl ? <Image source={{ uri: item.imageUrl }} style={styles.foodImage} contentFit="contain" transition={150} /> : <View style={styles.foodIcon}><Text style={styles.foodMark}>{item.name[0]}</Text></View>}<View style={{ flex: 1 }}><Text style={styles.foodName}>{item.name}</Text><Text style={styles.foodMeta}>{item.brand} · {item.detail}</Text><Text style={styles.foodSource}>{item.source} · Tap to add · Hold to review serving</Text></View><Text style={styles.add}>Add</Text></Pressable>) : <Text style={styles.empty}>No match yet. Keep typing, scan the barcode, or add it as a custom food.</Text>}</View>
 
       {selectedFood ? <View style={styles.manualCard}>
         <Text style={styles.suggestionTitle}>Add {selectedFood.name} to {selectedMeal}</Text>
