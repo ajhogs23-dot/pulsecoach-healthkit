@@ -94,11 +94,11 @@ export default function SupplementsScreen() {
         <TextInput value={name} onChangeText={setName} placeholder="Supplement or powder name" placeholderTextColor="#718071" style={styles.input} />
         <Pressable style={styles.button} onPress={() => { if (name.trim()) { add(name.trim()); setName(""); setShowAdd(false); } }}><Text style={styles.buttonText}>Add confirmed product</Text></Pressable>
       </View> : null}
-      {(items.length ? items : ["Whey protein", "Pre-workout"]).map((item) => <View style={styles.item} key={item}>
+      {items.length ? items.map((item) => <View style={styles.item} key={item}>
         <View style={styles.icon}><IconSymbol name="pills.fill" size={19} color={mint} /></View>
         <View style={styles.productBody}><Text style={styles.productName}>{item}</Text><Text style={styles.productMeta}>Serving and active ingredients · review label</Text><Text style={styles.productSource}>Schedule · servings remaining · taken log</Text></View>
         <IconSymbol name="chevron.right" size={18} color={muted} />
-      </View>)}
+      </View>) : <Text style={styles.empty}>Your cabinet is empty. Search above, scan a label, or add a confirmed product.</Text>}
       <View style={styles.notice}><Text style={styles.noticeTitle}>Duplicate-ingredient check</Text><Text style={styles.noticeCopy}>PulseCoach will flag overlapping caffeine, vitamins, or minerals across selected products. Check the label and ask a pharmacist or doctor when unsure.</Text></View>
       <Text style={styles.note}>Live results currently come from Open Food Facts. Some vitamins and specialist supplements will still require a barcode, label photo, or manual confirmed entry until another licensed supplement source is connected.</Text>
       <Pressable style={styles.secondary} onPress={() => router.push("/peptides" as any)}><IconSymbol name="book.fill" size={18} color={mint} /><Text style={styles.secondaryText}>Open research library</Text></Pressable>
