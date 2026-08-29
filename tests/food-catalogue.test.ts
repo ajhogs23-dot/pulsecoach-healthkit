@@ -1,5 +1,7 @@
-import { describe, expect, it } from "vitest";
-import { catalogueItemsFromResponse, isLikelySupplement } from "../lib/food-catalogue";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { catalogueItemsFromResponse, isLikelySupplement, searchOpenFoodFacts } from "../lib/food-catalogue";
+
+afterEach(() => vi.unstubAllGlobals());
 
 describe("live catalogue mapping", () => {
   it("ranks Australian supermarket products before global matches", () => {
@@ -29,6 +31,21 @@ describe("live catalogue mapping", () => {
     }] }, "protein bar");
     expect(result.detail).toContain("200 kcal");
     expect(result.nutrition.protein).toBe(10);
+  });
+
+  it("falls back when the primary search provider is unavailable", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({ ok: false })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ products: [{
+        code: "5",
+        product_name: "Australian oats",
+        countries_tags: ["en:australia"],
+        nutriments: { "energy-kcal_100g": 380 },
+      }] }) });
+    vi.stubGlobal("fetch", fetchMock);
+    const results = await searchOpenFoodFacts("oats");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(results[0].name).toBe("Australian oats");
   });
 
   it("recognises common sports supplement products", () => {
