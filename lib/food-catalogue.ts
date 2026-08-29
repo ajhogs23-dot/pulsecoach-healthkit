@@ -49,7 +49,6 @@ export const commonFoods: CatalogueItem[] = [
   ["milk-light","Light milk","Generic","250 ml",115,9,12,3.5,0,12,110],
   ["cottage-cheese","Cottage cheese","Generic","100 g",98,11,3.4,4.3,0,2.7,364],
   ["cheddar","Cheddar cheese","Generic","30 g",121,7.5,0.4,10,0,0.1,186],
-  ["whey","Whey protein shake","Generic","1 scoop with water",120,24,3,2,0,1,120],
   ["peanut-butter","Peanut butter","Generic","1 tablespoon",94,3.5,3.2,8,1,1.5,75],
   ["almonds","Almonds","Common food","30 g",174,6.4,6.5,15,3.8,1.3,1],
   ["olive-oil","Olive oil","Common food","1 tablespoon",119,0,0,13.5,0,0,0],
@@ -138,29 +137,70 @@ const fields = [
   "countries", "countries_tags", "stores", "categories_tags",
 ].join(",");
 
+const SEARCH_TIMEOUT_MS = 8_000;
+const requestHeaders = {
+  Accept: "application/json",
+  "X-User-Agent": "PulseCoach/1.0 (Open Food Facts search)",
+};
+
+export class CatalogueSearchError extends Error {
+  constructor(message: string, readonly causes: string[] = []) {
+    super(message);
+    this.name = "CatalogueSearchError";
+  }
+}
+
+const errorSummary = (error: unknown) => {
+  if (error instanceof Error) return error.name === "AbortError" ? "request timed out" : error.message;
+  return "unknown network error";
+};
+
+async function fetchWithTimeout(url: string, externalSignal?: AbortSignal): Promise<Response> {
+  const controller = new AbortController();
+  let timedOut = false;
+  const abort = () => controller.abort();
+  if (externalSignal?.aborted) abort();
+  else externalSignal?.addEventListener("abort", abort, { once: true });
+  const timer = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, SEARCH_TIMEOUT_MS);
+
+  try {
+    return await fetch(url, { signal: controller.signal, headers: requestHeaders });
+  } catch (error) {
+    if (externalSignal?.aborted) throw error;
+    if (timedOut) throw new CatalogueSearchError(`request timed out after ${SEARCH_TIMEOUT_MS / 1000} seconds`);
+    throw error;
+  } finally {
+    clearTimeout(timer);
+    externalSignal?.removeEventListener("abort", abort);
+  }
+}
+
 export async function searchOpenFoodFacts(query: string, signal?: AbortSignal, options: { requireCalories?: boolean } = {}): Promise<CatalogueItem[]> {
   const term = query.trim();
   if (term.length < 2) return [];
 
+  const failures: string[] = [];
+  const primaryParams = new URLSearchParams({
+    q: term,
+    langs: "en",
+    page: "1",
+    page_size: "100",
+    fields,
+  });
+
   try {
-    const primary = await fetch("https://search.openfoodfacts.org/search", {
-      method: "POST",
-      signal,
-      headers: { Accept: "application/json", "Content-Type": "application/json" },
-      body: JSON.stringify({
-        q: term,
-        langs: ["en"],
-        page: 1,
-        page_size: 100,
-        fields: fields.split(","),
-      }),
-    });
+    const primary = await fetchWithTimeout(`https://search.openfoodfacts.org/search?${primaryParams.toString()}`, signal);
     if (primary.ok) {
       const results = catalogueItemsFromResponse(await primary.json(), term, options);
       if (results.length) return results.slice(0, 50);
-    }
+      failures.push("primary search returned no usable product records");
+    } else failures.push(`primary search returned HTTP ${primary.status}`);
   } catch (error) {
     if (error instanceof Error && error.name === "AbortError") throw error;
+    failures.push(`primary search: ${errorSummary(error)}`);
   }
 
   const params = new URLSearchParams({
@@ -171,21 +211,48 @@ export async function searchOpenFoodFacts(query: string, signal?: AbortSignal, o
     page_size: "100",
     fields,
   });
-  const fallback = await fetch(`https://world.openfoodfacts.org/cgi/search.pl?${params.toString()}`, {
-    signal,
-    headers: { Accept: "application/json" },
-  });
-  if (!fallback.ok) throw new Error("Food catalogue unavailable");
-  return catalogueItemsFromResponse(await fallback.json(), term, options).slice(0, 50);
+  try {
+    const fallback = await fetchWithTimeout(`https://world.openfoodfacts.org/cgi/search.pl?${params.toString()}`, signal);
+    if (!fallback.ok) throw new Error(`HTTP ${fallback.status}`);
+    const results = catalogueItemsFromResponse(await fallback.json(), term, options).slice(0, 50);
+    if (typeof __DEV__ !== "undefined" && __DEV__ && failures.length) console.warn("[OpenFoodFacts] Primary failed; fallback completed.", failures.join("; "));
+    return results;
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") throw error;
+    failures.push(`fallback search: ${errorSummary(error)}`);
+    if (typeof __DEV__ !== "undefined" && __DEV__) console.warn("[OpenFoodFacts] Search failed.", failures.join("; "));
+    throw new CatalogueSearchError("Open Food Facts could not be reached. Check your connection and try again.", failures);
+  }
 }
 
 export const isLikelySupplement = (item: CatalogueItem) => {
-  const value = [item.name, item.brand, ...(item.categories ?? [])].join(" ").toLowerCase();
-  return /protein|whey|casein|creatine|supplement|pre-workout|post-workout|electrolyte|amino|bcaa|meal-replacement|mass-gainer/.test(value);
+  const productIdentity = `${item.name} ${item.brand}`.toLowerCase();
+  const categories = (item.categories ?? []).join(" ").toLowerCase();
+  const clearlyNamedSupplement = [
+    /\b(?:whey|casein)(?:\s+protein)?(?:\s+(?:powder|isolate|concentrate))?\b/,
+    /\bprotein\s+(?:powder|supplement|isolate|concentrate)\b/,
+    /\bcreatine(?:\s+monohydrate)?\b/,
+    /\b(?:pre|post)[-\s]?workout\b/,
+    /\belectrolyte(?:s)?\s+(?:powder|mix|supplement|tablets?|capsules?)\b/,
+    /\b(?:bcaa|eaa|amino(?:\s+acid)?s?)\b/,
+    /\bmass[-\s]?gainer\b/,
+    /\bmeal[-\s]?replacement\s+(?:powder|shake|supplement)\b/,
+    /\bsports?\s+supplement\b/,
+    /\bmultivitamins?\b/,
+    /\bvitamin(?:s|\s+[a-k](?:\d{1,2})?)?\s+(?:supplement|tablets?|capsules?|gummies|powder)\b/,
+    /\b(?:magnesium|zinc|iron|calcium|mineral)\s+(?:supplement|tablets?|capsules?|gummies|powder)\b/,
+  ].some((pattern) => pattern.test(productIdentity));
+  if (clearlyNamedSupplement) return true;
+
+  return /\b(?:dietary-supplements?|bodybuilding-supplements?|sports?-supplements?|protein-powders?|creatine-supplements?|pre-workout-supplements?|post-workout-supplements?|amino-acid-supplements?|meal-replacement-powders?|mass-gainers?)\b/.test(categories);
 };
 
 export async function searchSupplementProducts(query: string, signal?: AbortSignal): Promise<CatalogueItem[]> {
   const results = await searchOpenFoodFacts(query, signal, { requireCalories: false });
-  const supplementMatches = results.filter(isLikelySupplement);
-  return (supplementMatches.length ? supplementMatches : results).slice(0, 30);
+  return results.filter(isLikelySupplement).slice(0, 30);
+}
+
+export async function searchFoodProducts(query: string, signal?: AbortSignal): Promise<CatalogueItem[]> {
+  const results = await searchOpenFoodFacts(query, signal);
+  return results.filter((item) => !isLikelySupplement(item)).slice(0, 50);
 }

@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Keyboard, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { router, useFocusEffect } from "expo-router";
 import { Image } from "expo-image";
@@ -7,7 +7,7 @@ import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useAuth } from "@/hooks/use-auth";
 import { addFoodLog, loadFoodLog, removeFoodLog, summariseFoodLog, todayFoodLog, type FoodLogEntry, type MealName } from "@/lib/food-log";
 import { calculateCalorieEstimate, DEFAULT_PROFILE_PREFERENCES, loadProfilePreferences, type ProfilePreferences } from "@/lib/profile-preferences";
-import { commonFoods, searchOpenFoodFacts, type CatalogueItem } from "@/lib/food-catalogue";
+import { commonFoods, searchFoodProducts, type CatalogueItem } from "@/lib/food-catalogue";
 import { foodAmountLabel, parseFoodServing, servingMultiplier } from "@/lib/food-serving";
 
 const mint = "#B8F36B";
@@ -17,6 +17,8 @@ const storageKey = (user: { openId?: string; id?: number } | null) => user?.open
 const mealNames: MealName[] = ["Breakfast", "Lunch", "Dinner", "Snacks"];
 
 export default function NutritionScreen() {
+  const scrollRef = useRef<ScrollView>(null);
+  const searchPosition = useRef(0);
   const { user } = useAuth({ autoFetch: false });
   const userKey = storageKey(user);
   const [query, setQuery] = useState("");
@@ -34,6 +36,7 @@ export default function NutritionScreen() {
   const [remoteFoods, setRemoteFoods] = useState<CatalogueItem[]>([]);
   const [catalogueLoading, setCatalogueLoading] = useState(false);
   const [catalogueMessage, setCatalogueMessage] = useState("");
+  const [searchRevision, setSearchRevision] = useState(0);
   const [selectedFood, setSelectedFood] = useState<CatalogueItem | null>(null);
   const [servingAmount, setServingAmount] = useState("");
   const [servingFeedback, setServingFeedback] = useState("");
@@ -60,12 +63,12 @@ export default function NutritionScreen() {
     const timer = setTimeout(() => {
       setCatalogueLoading(true);
       setCatalogueMessage("");
-      void searchOpenFoodFacts(term, controller.signal)
+      void searchFoodProducts(term, controller.signal)
         .then(setRemoteFoods)
         .catch((error) => {
           if (error instanceof Error && error.name === "AbortError") return;
           setRemoteFoods([]);
-          setCatalogueMessage("Online products could not load. You can still use common or custom foods.");
+          setCatalogueMessage("Open Food Facts could not load. Check your connection, then retry. Common and custom foods are still available.");
         })
         .finally(() => setCatalogueLoading(false));
     }, 350);
@@ -73,7 +76,7 @@ export default function NutritionScreen() {
       clearTimeout(timer);
       controller.abort();
     };
-  }, [query]);
+  }, [query, searchRevision]);
 
   const suggestions = useMemo(() => {
     const term = query.trim().toLowerCase();
@@ -100,6 +103,8 @@ export default function NutritionScreen() {
     setSelectedFood(item);
     setServingAmount(String(serving.baseQuantity));
     setServingFeedback("");
+    Keyboard.dismiss();
+    requestAnimationFrame(() => scrollRef.current?.scrollTo({ y: Math.max(0, searchPosition.current - 8), animated: true }));
   };
 
   const addSuggestion = async (itemToAdd?: CatalogueItem) => {
@@ -127,6 +132,7 @@ export default function NutritionScreen() {
     setServingFeedback("");
     setQuery("");
     setRemoteFoods([]);
+    Keyboard.dismiss();
   };
 
   const deleteEntry = async (entryId: string) => {
@@ -165,13 +171,31 @@ export default function NutritionScreen() {
   };
 
   return <ScreenContainer className="px-5 pt-4">
-    <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+    <ScrollView ref={scrollRef} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
       <Text style={styles.eyebrow}>NUTRITION</Text>
       <Text style={styles.title}>Eat with clarity.</Text>
       <Text style={styles.subtitle}>Search first, choose the meal, then add the food you actually consumed.</Text>
 
       <View style={styles.mealTabs}>{mealNames.map((meal) => <Pressable key={meal} onPress={() => setSelectedMeal(meal)} style={[styles.mealTab, selectedMeal === meal && styles.mealTabActive]}><Text style={[styles.mealTabText, selectedMeal === meal && styles.mealTabTextActive]}>{meal}</Text></Pressable>)}</View>
-      <View style={styles.search}><IconSymbol name="magnifyingglass" size={18} color={muted} /><TextInput value={query} onChangeText={setQuery} placeholder={`Search food for ${selectedMeal.toLowerCase()}`} placeholderTextColor="#718071" style={styles.searchInput} /></View>
+      <View style={styles.search} onLayout={(event) => { searchPosition.current = event.nativeEvent.layout.y; }}><IconSymbol name="magnifyingglass" size={18} color={muted} /><TextInput value={query} onChangeText={setQuery} placeholder={`Search food for ${selectedMeal.toLowerCase()}`} placeholderTextColor="#718071" style={styles.searchInput} /></View>
+
+      {selectedFood ? <View style={styles.reviewCard} accessibilityLabel={`Review ${selectedFood.name} before adding to ${selectedMeal}`}>
+        <Text style={styles.reviewEyebrow}>REVIEW SERVING</Text>
+        <Text style={styles.suggestionTitle}>Add {selectedFood.name} to {selectedMeal}</Text>
+        <Text style={styles.foodMeta}>{selectedFood.brand} · Nutrition is listed for {selectedFood.detail}.</Text>
+        <Text style={styles.foodSource}>{selectedFood.source}</Text>
+        <Text style={styles.reviewPrompt}>Enter the amount you actually had.</Text>
+        <View style={styles.manualRow}>
+          <TextInput value={servingAmount} onChangeText={setServingAmount} placeholder="Amount" placeholderTextColor="#718071" keyboardType="decimal-pad" style={styles.manualInputHalf} accessibilityLabel={`Amount in ${parseFoodServing(selectedFood.detail).unit}`} />
+          <View style={[styles.manualInputHalf, { justifyContent: "center" }]}><Text style={styles.foodName}>{parseFoodServing(selectedFood.detail).unit}</Text></View>
+        </View>
+        {servingFeedback ? <Text style={styles.foodSource}>{servingFeedback}</Text> : null}
+        <View style={styles.entryRow}>
+          <Pressable style={styles.entry} onPress={() => { setSelectedFood(null); setServingFeedback(""); }} accessibilityRole="button"><Text style={styles.entryText}>Cancel</Text></Pressable>
+          <Pressable style={styles.recipe} onPress={() => void addSuggestion()} accessibilityRole="button" accessibilityLabel={`Confirm add ${selectedFood.name} to ${selectedMeal}`}><Text style={styles.recipeText}>Add to {selectedMeal}</Text></Pressable>
+        </View>
+      </View> : null}
+
       <View style={styles.entryRow}><Pressable style={styles.entry} onPress={() => router.push("/scan?mode=food" as any)}><IconSymbol name="barcode.viewfinder" size={18} color={mint} /><Text style={styles.entryText}>Scan barcode</Text></Pressable><Pressable style={styles.entry} onPress={() => router.push("/scan?mode=food" as any)}><IconSymbol name="camera.fill" size={18} color={mint} /><Text style={styles.entryText}>Take a photo</Text></Pressable></View>
 
       <Pressable style={styles.addMeal} onPress={() => { setManualOpen((open) => !open); setManualFeedback(""); }}><Text style={styles.addMealText}>{manualOpen ? "− Close manual entry" : "+ Add a custom food"}</Text></Pressable>
@@ -194,7 +218,7 @@ export default function NutritionScreen() {
       <View style={styles.suggestions}>
         <Text style={styles.suggestionTitle}>{query.length ? "Suggested matches" : "Quick add"}</Text>
         {catalogueLoading ? <Text style={styles.searchStatus}>Searching the full supermarket catalogue…</Text> : null}
-        {catalogueMessage ? <Text style={styles.empty}>{catalogueMessage}</Text> : null}
+        {catalogueMessage ? <View style={styles.errorRow}><Text style={[styles.empty, styles.errorText]}>{catalogueMessage}</Text><Pressable onPress={() => setSearchRevision((value) => value + 1)} accessibilityRole="button"><Text style={styles.retry}>Retry</Text></Pressable></View> : null}
         {suggestions.length ? suggestions.map((item) => <View key={item.id} style={styles.suggestion}>
           <Pressable style={styles.suggestionBody} onPress={() => selectSuggestion(item)} accessibilityRole="button" accessibilityLabel={`Review ${item.name} serving`}>
             {item.imageUrl ? <Image source={{ uri: item.imageUrl }} style={styles.foodImage} contentFit="contain" transition={150} /> : <View style={styles.foodIcon}><Text style={styles.foodMark}>{item.name[0]}</Text></View>}
@@ -203,20 +227,6 @@ export default function NutritionScreen() {
           <Pressable onPress={() => void addSuggestion(item)} accessibilityRole="button" accessibilityLabel={`Add ${item.name} to ${selectedMeal}`}><Text style={styles.add}>Add</Text></Pressable>
         </View>) : <Text style={styles.empty}>No match yet. Keep typing, scan the barcode, or add it as a custom food.</Text>}
       </View>
-
-      {selectedFood ? <View style={styles.manualCard}>
-        <Text style={styles.suggestionTitle}>Add {selectedFood.name} to {selectedMeal}</Text>
-        <Text style={styles.foodMeta}>Nutrition is listed for {selectedFood.detail}. Enter the amount you actually had.</Text>
-        <View style={styles.manualRow}>
-          <TextInput value={servingAmount} onChangeText={setServingAmount} placeholder="Amount" placeholderTextColor="#718071" keyboardType="decimal-pad" style={styles.manualInputHalf} />
-          <View style={[styles.manualInputHalf, { justifyContent: "center" }]}><Text style={styles.foodName}>{parseFoodServing(selectedFood.detail).unit}</Text></View>
-        </View>
-        {servingFeedback ? <Text style={styles.foodSource}>{servingFeedback}</Text> : null}
-        <View style={styles.entryRow}>
-          <Pressable style={styles.entry} onPress={() => { setSelectedFood(null); setServingFeedback(""); }}><Text style={styles.entryText}>Cancel</Text></Pressable>
-          <Pressable style={styles.recipe} onPress={() => void addSuggestion()}><Text style={styles.recipeText}>Add food</Text></Pressable>
-        </View>
-      </View> : null}
 
       <View style={styles.summary}><View><Text style={styles.summaryEyebrow}>TODAY’S TOTALS</Text><Text style={styles.summaryTitle}>{Math.round(totals.calories)} kcal <Text style={styles.kj}>· {Math.round(kilojoules)} kJ</Text></Text><Text style={styles.summaryCopy}>{remainingCalories === undefined ? `${todayEntries.length} food entr${todayEntries.length === 1 ? "y" : "ies"} logged today` : `${Math.round(Math.abs(remainingCalories))} kcal ${remainingCalories >= 0 ? "remaining" : "over target"} · ${todayEntries.length} entries`}</Text></View><View style={styles.ring}><Text style={styles.ringText}>{Math.round(totals.protein)}g</Text><Text style={styles.ringLabel}>PROTEIN</Text></View></View>
       <View style={styles.metricRow}>{[["Carbs", `${Math.round(totals.carbohydrates)} g`], ["Fat", `${Math.round(totals.fat)} g`], ["Fibre", `${Math.round(totals.fibre)} g`], ["Sugar", `${Math.round(totals.sugars)} g`], ["Sodium", `${Math.round(totals.sodium)} mg`]].map(([label, value]) => <View key={label} style={styles.metric}><Text style={styles.metricLabel}>{label}</Text><Text style={styles.metricValue}>{value}</Text></View>)}</View>
@@ -233,5 +243,5 @@ export default function NutritionScreen() {
   </ScreenContainer>;
 }
 
-const styles = StyleSheet.create({ manualCard: { backgroundColor: "#1B231D", borderRadius: 17, padding: 13, borderWidth: 1, borderColor: "#354536", gap: 10 }, manualRow: { flexDirection: "row", gap: 8 }, manualInput: { backgroundColor: "#111513", borderRadius: 12, borderWidth: 1, borderColor: "#3B4A3B", padding: 12, color: "#F4F7F0" }, manualInputHalf: { flex: 1, backgroundColor: "#111513", borderRadius: 12, borderWidth: 1, borderColor: "#3B4A3B", padding: 12, color: "#F4F7F0" }, manualInputThird: { flex: 1, backgroundColor: "#111513", borderRadius: 12, borderWidth: 1, borderColor: "#3B4A3B", padding: 10, color: "#F4F7F0", fontSize: 11 }, content: { paddingBottom: 36, gap: 13 }, eyebrow: { color: mint, fontSize: 11, fontWeight: "800", letterSpacing: 1.4 }, title: { color: "#F4F7F0", fontSize: 30, fontWeight: "800", letterSpacing: -0.7 }, subtitle: { color: muted, fontSize: 14, lineHeight: 20 }, search: { flexDirection: "row", alignItems: "center", gap: 9, backgroundColor: "#111513", borderRadius: 14, borderWidth: 1, borderColor: "#3B4A3B", paddingHorizontal: 13 }, searchInput: { flex: 1, color: "#F4F7F0", paddingVertical: 14, fontSize: 14 }, entryRow: { flexDirection: "row", gap: 9 }, entry: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7, backgroundColor: "#2B3B27", borderRadius: 13, padding: 12 }, entryText: { color: mint, fontWeight: "800", fontSize: 12 }, suggestions: { backgroundColor: "#1B231D", borderRadius: 17, padding: 13, borderWidth: 1, borderColor: "#354536", gap: 9 }, suggestionTitle: { color: "#F4F7F0", fontWeight: "800", fontSize: 14 }, suggestion: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 4 }, suggestionBody: { flex: 1, flexDirection: "row", alignItems: "center", gap: 10 }, foodIcon: { width: 44, height: 44, borderRadius: 12, backgroundColor: "#2C3321", alignItems: "center", justifyContent: "center" }, foodImage: { width: 44, height: 44, borderRadius: 10, backgroundColor: "#F4F7F0" }, foodMark: { color: mint, fontWeight: "900" }, foodName: { color: "#F4F7F0", fontWeight: "800", fontSize: 13 }, foodMeta: { color: muted, fontSize: 10, marginTop: 3 }, foodSource: { color: mint, fontSize: 9, fontWeight: "700", marginTop: 3 }, searchStatus: { color: muted, fontSize: 11, fontStyle: "italic" }, add: { color: mint, fontSize: 11, fontWeight: "800" }, empty: { color: muted, fontSize: 12, lineHeight: 17 }, summary: { backgroundColor: "#202A21", borderRadius: 19, padding: 16, borderWidth: 1, borderColor: "#354536", flexDirection: "row", justifyContent: "space-between", alignItems: "center" }, summaryEyebrow: { color: mint, fontSize: 10, fontWeight: "800", letterSpacing: 1 }, summaryTitle: { color: "#F4F7F0", fontSize: 22, fontWeight: "900", marginTop: 7 }, kj: { color: muted, fontSize: 12, fontWeight: "600" }, summaryCopy: { color: muted, fontSize: 10, marginTop: 5 }, ring: { width: 63, height: 63, borderRadius: 32, borderWidth: 3, borderColor: mint, justifyContent: "center", alignItems: "center" }, ringText: { color: "#F4F7F0", fontSize: 16, fontWeight: "900" }, ringLabel: { color: mint, fontSize: 8, fontWeight: "900" }, metricRow: { flexDirection: "row", gap: 7 }, metric: { flex: 1, backgroundColor: "#1B231D", borderRadius: 11, padding: 9 }, metricLabel: { color: muted, fontSize: 9 }, metricValue: { color: "#F4F7F0", fontSize: 12, fontWeight: "800", marginTop: 3 }, mealTabs: { flexDirection: "row", gap: 7, marginTop: 3 }, mealTab: { flex: 1, alignItems: "center", paddingVertical: 10, borderRadius: 11, backgroundColor: "#1B231D" }, mealTabActive: { backgroundColor: "#2C3B25", borderWidth: 1, borderColor: mint }, mealTabText: { color: muted, fontSize: 10, fontWeight: "800" }, mealTabTextActive: { color: mint }, meal: { backgroundColor: "#1B231D", borderRadius: 16, padding: 13, borderWidth: 1, borderColor: "#263128", gap: 10 }, mealTop: { flexDirection: "row", justifyContent: "space-between" }, mealTitle: { color: "#F4F7F0", fontSize: 15, fontWeight: "800" }, mealTotal: { color: mint, fontSize: 11, fontWeight: "800" }, logged: { flexDirection: "row", justifyContent: "space-between", borderTopWidth: 1, borderTopColor: "#2D392E", paddingTop: 8 }, loggedName: { color: muted, fontSize: 11 }, loggedAction: { color: mint, fontSize: 10, fontWeight: "800" }, emptyMeal: { color: muted, fontSize: 11, lineHeight: 16 }, addMeal: { borderTopWidth: 1, borderTopColor: "#2D392E", paddingTop: 9 }, addMealText: { color: mint, fontSize: 11, fontWeight: "800" }, recipe: { backgroundColor: mint, borderRadius: 15, padding: 14, flexDirection: "row", justifyContent: "center", gap: 8 }, recipeText: { color: "#111513", fontWeight: "800", fontSize: 13 }, note: { color: "#718071", fontSize: 11, lineHeight: 16 }
+const styles = StyleSheet.create({ manualCard: { backgroundColor: "#1B231D", borderRadius: 17, padding: 13, borderWidth: 1, borderColor: "#354536", gap: 10 }, reviewCard: { backgroundColor: "#202A21", borderRadius: 17, padding: 14, borderWidth: 2, borderColor: mint, gap: 10 }, reviewEyebrow: { color: mint, fontSize: 10, fontWeight: "900", letterSpacing: 1.1 }, reviewPrompt: { color: "#DCE7D8", fontSize: 12, fontWeight: "700" }, manualRow: { flexDirection: "row", gap: 8 }, manualInput: { backgroundColor: "#111513", borderRadius: 12, borderWidth: 1, borderColor: "#3B4A3B", padding: 12, color: "#F4F7F0" }, manualInputHalf: { flex: 1, backgroundColor: "#111513", borderRadius: 12, borderWidth: 1, borderColor: "#3B4A3B", padding: 12, color: "#F4F7F0" }, manualInputThird: { flex: 1, backgroundColor: "#111513", borderRadius: 12, borderWidth: 1, borderColor: "#3B4A3B", padding: 10, color: "#F4F7F0", fontSize: 11 }, content: { paddingBottom: 36, gap: 13 }, eyebrow: { color: mint, fontSize: 11, fontWeight: "800", letterSpacing: 1.4 }, title: { color: "#F4F7F0", fontSize: 30, fontWeight: "800", letterSpacing: -0.7 }, subtitle: { color: muted, fontSize: 14, lineHeight: 20 }, search: { flexDirection: "row", alignItems: "center", gap: 9, backgroundColor: "#111513", borderRadius: 14, borderWidth: 1, borderColor: "#3B4A3B", paddingHorizontal: 13 }, searchInput: { flex: 1, color: "#F4F7F0", paddingVertical: 14, fontSize: 14 }, entryRow: { flexDirection: "row", gap: 9 }, entry: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7, backgroundColor: "#2B3B27", borderRadius: 13, padding: 12 }, entryText: { color: mint, fontWeight: "800", fontSize: 12 }, suggestions: { backgroundColor: "#1B231D", borderRadius: 17, padding: 13, borderWidth: 1, borderColor: "#354536", gap: 9 }, suggestionTitle: { color: "#F4F7F0", fontWeight: "800", fontSize: 14 }, suggestion: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 4 }, suggestionBody: { flex: 1, flexDirection: "row", alignItems: "center", gap: 10 }, foodIcon: { width: 44, height: 44, borderRadius: 12, backgroundColor: "#2C3321", alignItems: "center", justifyContent: "center" }, foodImage: { width: 44, height: 44, borderRadius: 10, backgroundColor: "#F4F7F0" }, foodMark: { color: mint, fontWeight: "900" }, foodName: { color: "#F4F7F0", fontWeight: "800", fontSize: 13 }, foodMeta: { color: muted, fontSize: 10, marginTop: 3 }, foodSource: { color: mint, fontSize: 9, fontWeight: "700", marginTop: 3 }, searchStatus: { color: muted, fontSize: 11, fontStyle: "italic" }, add: { color: mint, fontSize: 11, fontWeight: "800" }, empty: { color: muted, fontSize: 12, lineHeight: 17 }, errorRow: { flexDirection: "row", alignItems: "center", gap: 12 }, errorText: { flex: 1 }, retry: { color: mint, fontSize: 12, fontWeight: "800", paddingVertical: 6 }, summary: { backgroundColor: "#202A21", borderRadius: 19, padding: 16, borderWidth: 1, borderColor: "#354536", flexDirection: "row", justifyContent: "space-between", alignItems: "center" }, summaryEyebrow: { color: mint, fontSize: 10, fontWeight: "800", letterSpacing: 1 }, summaryTitle: { color: "#F4F7F0", fontSize: 22, fontWeight: "900", marginTop: 7 }, kj: { color: muted, fontSize: 12, fontWeight: "600" }, summaryCopy: { color: muted, fontSize: 10, marginTop: 5 }, ring: { width: 63, height: 63, borderRadius: 32, borderWidth: 3, borderColor: mint, justifyContent: "center", alignItems: "center" }, ringText: { color: "#F4F7F0", fontSize: 16, fontWeight: "900" }, ringLabel: { color: mint, fontSize: 8, fontWeight: "900" }, metricRow: { flexDirection: "row", gap: 7 }, metric: { flex: 1, backgroundColor: "#1B231D", borderRadius: 11, padding: 9 }, metricLabel: { color: muted, fontSize: 9 }, metricValue: { color: "#F4F7F0", fontSize: 12, fontWeight: "800", marginTop: 3 }, mealTabs: { flexDirection: "row", gap: 7, marginTop: 3 }, mealTab: { flex: 1, alignItems: "center", paddingVertical: 10, borderRadius: 11, backgroundColor: "#1B231D" }, mealTabActive: { backgroundColor: "#2C3B25", borderWidth: 1, borderColor: mint }, mealTabText: { color: muted, fontSize: 10, fontWeight: "800" }, mealTabTextActive: { color: mint }, meal: { backgroundColor: "#1B231D", borderRadius: 16, padding: 13, borderWidth: 1, borderColor: "#263128", gap: 10 }, mealTop: { flexDirection: "row", justifyContent: "space-between" }, mealTitle: { color: "#F4F7F0", fontSize: 15, fontWeight: "800" }, mealTotal: { color: mint, fontSize: 11, fontWeight: "800" }, logged: { flexDirection: "row", justifyContent: "space-between", borderTopWidth: 1, borderTopColor: "#2D392E", paddingTop: 8 }, loggedName: { color: muted, fontSize: 11 }, loggedAction: { color: mint, fontSize: 10, fontWeight: "800" }, emptyMeal: { color: muted, fontSize: 11, lineHeight: 16 }, addMeal: { borderTopWidth: 1, borderTopColor: "#2D392E", paddingTop: 9 }, addMealText: { color: mint, fontSize: 11, fontWeight: "800" }, recipe: { backgroundColor: mint, borderRadius: 15, padding: 14, flexDirection: "row", justifyContent: "center", gap: 8 }, recipeText: { color: "#111513", fontWeight: "800", fontSize: 13 }, note: { color: "#718071", fontSize: 11, lineHeight: 16 }
 });

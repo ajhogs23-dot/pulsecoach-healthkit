@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Keyboard, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { router } from "expo-router";
 import { Image } from "expo-image";
@@ -10,6 +10,8 @@ const mint = "#B8F36B";
 const muted = "#A8B3A6";
 
 export default function SupplementsScreen() {
+  const scrollRef = useRef<ScrollView>(null);
+  const searchPosition = useRef(0);
   const [query, setQuery] = useState("");
   const [items, setItems] = useState<string[]>([]);
   const [showAdd, setShowAdd] = useState(false);
@@ -17,7 +19,9 @@ export default function SupplementsScreen() {
   const [matches, setMatches] = useState<CatalogueItem[]>([]);
   const [searching, setSearching] = useState(false);
   const [searchMessage, setSearchMessage] = useState("");
+  const [searchRevision, setSearchRevision] = useState(0);
   const [selectionMessage, setSelectionMessage] = useState("");
+  const [selectedProduct, setSelectedProduct] = useState<CatalogueItem | null>(null);
 
   useEffect(() => {
     const term = query.trim();
@@ -34,12 +38,12 @@ export default function SupplementsScreen() {
       void searchSupplementProducts(term, controller.signal)
         .then((results) => {
           setMatches(results);
-          if (!results.length) setSearchMessage("No product with usable label nutrition was found. Scan the label or add a private confirmed entry.");
+          if (!results.length) setSearchMessage("No credible supplement match was found. Scan the barcode, take a label photo, or add it manually.");
         })
         .catch((error) => {
           if (error instanceof Error && error.name === "AbortError") return;
           setMatches([]);
-          setSearchMessage("The live catalogue could not be reached. Scan the label or try again.");
+          setSearchMessage("Open Food Facts could not load. Check your connection, then retry or scan the label.");
         })
         .finally(() => setSearching(false));
     }, 350);
@@ -47,11 +51,12 @@ export default function SupplementsScreen() {
       clearTimeout(timer);
       controller.abort();
     };
-  }, [query]);
+  }, [query, searchRevision]);
 
   const add = (nameToAdd: string) => {
     setItems((current) => current.includes(nameToAdd) ? current : [nameToAdd, ...current]);
     setSelectionMessage(`${nameToAdd} added to your selected supplements.`);
+    setSelectedProduct(null);
     setQuery("");
     setMatches([]);
     setSearchMessage("");
@@ -64,7 +69,7 @@ export default function SupplementsScreen() {
   };
 
   return <ScreenContainer className="px-5 pt-4">
-    <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+    <ScrollView ref={scrollRef} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
       <Text style={styles.eyebrow}>SUPPLEMENTS</Text>
       <Text style={styles.title}>Keep your cabinet clear.</Text>
       <Text style={styles.subtitle}>Search live product data, scan a package, then confirm the exact flavour and serving before adding it.</Text>
@@ -84,24 +89,47 @@ export default function SupplementsScreen() {
         <Pressable onPress={() => remove(item)}><Text style={styles.remove}>Remove</Text></Pressable>
       </View>)}</View> : <Text style={styles.empty}>Nothing selected yet. Search below or add a confirmed product.</Text>}
 
-      <View style={styles.search}>
+      <View style={styles.search} onLayout={(event) => { searchPosition.current = event.nativeEvent.layout.y; }}>
         <IconSymbol name="magnifyingglass" size={18} color={muted} />
-        <TextInput value={query} onChangeText={(value) => { setQuery(value); setSelectionMessage(""); }} placeholder="Search protein, creatine, brand or flavour" placeholderTextColor="#718071" style={styles.searchInput} />
+        <TextInput value={query} onChangeText={(value) => { setQuery(value); setSelectionMessage(""); setSelectedProduct(null); }} placeholder="Search protein, creatine, brand or flavour" placeholderTextColor="#718071" style={styles.searchInput} />
       </View>
+
+      {selectedProduct ? <View style={styles.reviewCard} accessibilityLabel={`Review ${selectedProduct.name} before adding`}>
+        <Text style={styles.reviewEyebrow}>REVIEW PRODUCT</Text>
+        <View style={styles.reviewProduct}>
+          {selectedProduct.imageUrl ? <Image source={{ uri: selectedProduct.imageUrl }} style={styles.reviewImage} contentFit="contain" transition={150} /> : <View style={styles.icon}><Text style={styles.iconText}>{selectedProduct.name[0]}</Text></View>}
+          <View style={styles.productBody}>
+            <Text style={styles.reviewName}>{selectedProduct.name}</Text>
+            <Text style={styles.reviewBrand}>{selectedProduct.brand}</Text>
+          </View>
+        </View>
+        <View style={styles.reviewDetails}>
+          <Text style={styles.reviewLabel}>SERVING / LABEL</Text><Text style={styles.reviewValue}>{selectedProduct.detail}</Text>
+          <Text style={styles.reviewLabel}>SOURCE</Text><Text style={styles.reviewValue}>{selectedProduct.source}</Text>
+          {selectedProduct.stores ? <><Text style={styles.reviewLabel}>RETAILER</Text><Text style={styles.reviewValue}>{selectedProduct.stores}</Text></> : null}
+          {selectedProduct.nutritionAvailable === false ? <Text style={styles.confirmLabel}>Nutrition is incomplete — confirm the exact serving and label before use.</Text> : null}
+        </View>
+        <View style={styles.reviewActions}>
+          <Pressable style={styles.cancelButton} onPress={() => setSelectedProduct(null)} accessibilityRole="button"><Text style={styles.cancelText}>Cancel</Text></Pressable>
+          <Pressable style={styles.confirmButton} onPress={() => add(selectedProduct.name)} accessibilityRole="button" accessibilityLabel={`Confirm add ${selectedProduct.name}`}><Text style={styles.confirmText}>Confirm add</Text></Pressable>
+        </View>
+      </View> : null}
 
       {query.trim().length > 1 ? <View style={styles.results}>
         <Text style={styles.section}>Search results</Text>
         {searching ? <Text style={styles.searchStatus}>Searching Australian and global products…</Text> : null}
-        {searchMessage ? <Text style={styles.empty}>{searchMessage}</Text> : null}
-        {matches.map((item) => <Pressable key={item.id} style={styles.product} onPress={() => add(item.name)}>
-          {item.imageUrl ? <Image source={{ uri: item.imageUrl }} style={styles.productImage} contentFit="contain" transition={150} /> : <View style={styles.icon}><Text style={styles.iconText}>{item.name[0]}</Text></View>}
-          <View style={styles.productBody}>
-            <Text style={styles.productName}>{item.name}</Text>
-            <Text style={styles.productMeta}>{item.brand} · {item.detail}</Text>
-            <Text style={styles.productSource}>{item.source}{item.stores ? ` · ${item.stores}` : ""}</Text>
-          </View>
-          <Text style={styles.add}>Add</Text>
-        </Pressable>)}
+        {searchMessage ? <View style={styles.errorRow}><Text style={[styles.empty, styles.errorText]}>{searchMessage}</Text><Pressable onPress={() => setSearchRevision((value) => value + 1)} accessibilityRole="button"><Text style={styles.retry}>Retry</Text></Pressable></View> : null}
+        {matches.map((item) => <View key={item.id} style={styles.product}>
+          <Pressable style={styles.productReviewTarget} onPress={() => { setSelectedProduct(item); Keyboard.dismiss(); requestAnimationFrame(() => scrollRef.current?.scrollTo({ y: Math.max(0, searchPosition.current - 8), animated: true })); }} accessibilityRole="button" accessibilityLabel={`Review ${item.name}`}>
+            {item.imageUrl ? <Image source={{ uri: item.imageUrl }} style={styles.productImage} contentFit="contain" transition={150} /> : <View style={styles.icon}><Text style={styles.iconText}>{item.name[0]}</Text></View>}
+            <View style={styles.productBody}>
+              <Text style={styles.productName}>{item.name}</Text>
+              <Text style={styles.productMeta}>{item.brand} · {item.detail}</Text>
+              <Text style={styles.productSource}>{item.source}{item.stores ? ` · ${item.stores}` : ""}</Text>
+            </View>
+          </Pressable>
+          <Pressable style={styles.quickAdd} onPress={() => add(item.name)} accessibilityRole="button" accessibilityLabel={`Quick add ${item.name}`}><Text style={styles.add}>Add</Text></Pressable>
+        </View>)}
       </View> : null}
 
       <View style={styles.actions}>
@@ -134,6 +162,8 @@ const styles = StyleSheet.create({
   section: { color: "#F4F7F0", fontSize: 18, fontWeight: "800" },
   link: { color: mint, fontWeight: "800", fontSize: 12 },
   product: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 4 },
+  productReviewTarget: { flex: 1, flexDirection: "row", alignItems: "center", gap: 10 },
+  quickAdd: { paddingHorizontal: 6, paddingVertical: 12 },
   productBody: { flex: 1 },
   icon: { width: 42, height: 42, borderRadius: 12, backgroundColor: "#2C3321", alignItems: "center", justifyContent: "center" },
   productImage: { width: 42, height: 42, borderRadius: 10, backgroundColor: "#F4F7F0" },
@@ -143,6 +173,24 @@ const styles = StyleSheet.create({
   productSource: { color: mint, fontSize: 9, fontWeight: "700", marginTop: 3 },
   add: { color: mint, fontSize: 11, fontWeight: "800" },
   empty: { color: muted, fontSize: 12, lineHeight: 17 },
+  errorRow: { flexDirection: "row", alignItems: "center", gap: 12 },
+  errorText: { flex: 1 },
+  retry: { color: mint, fontSize: 12, fontWeight: "800", paddingVertical: 6 },
+  reviewCard: { backgroundColor: "#202A21", borderRadius: 17, padding: 14, gap: 11, borderWidth: 2, borderColor: mint },
+  reviewEyebrow: { color: mint, fontSize: 10, fontWeight: "900", letterSpacing: 1.1 },
+  reviewProduct: { flexDirection: "row", alignItems: "center", gap: 12 },
+  reviewImage: { width: 64, height: 64, borderRadius: 12, backgroundColor: "#F4F7F0" },
+  reviewName: { color: "#F4F7F0", fontSize: 16, fontWeight: "900" },
+  reviewBrand: { color: muted, fontSize: 12, marginTop: 4 },
+  reviewDetails: { gap: 4 },
+  reviewLabel: { color: mint, fontSize: 9, fontWeight: "900", letterSpacing: 0.8, marginTop: 4 },
+  reviewValue: { color: "#DCE7D8", fontSize: 12, lineHeight: 17 },
+  confirmLabel: { color: "#F7CF77", fontSize: 11, fontWeight: "800", lineHeight: 16, marginTop: 5 },
+  reviewActions: { flexDirection: "row", gap: 9 },
+  cancelButton: { flex: 1, alignItems: "center", borderRadius: 13, padding: 13, backgroundColor: "#2B3B27" },
+  cancelText: { color: mint, fontWeight: "800" },
+  confirmButton: { flex: 1, alignItems: "center", borderRadius: 13, padding: 13, backgroundColor: mint },
+  confirmText: { color: "#111513", fontWeight: "900" },
   form: { backgroundColor: "#1B231D", borderRadius: 16, padding: 13, gap: 10 },
   input: { backgroundColor: "#111513", color: "#F4F7F0", borderRadius: 12, padding: 13, borderWidth: 1, borderColor: "#2D392E" },
   button: { backgroundColor: mint, borderRadius: 13, padding: 13, alignItems: "center" },
