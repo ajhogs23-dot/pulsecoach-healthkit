@@ -131,7 +131,7 @@ export default function ProfileScreen() {
           <View style={styles.settingsIcon}><IconSymbol name="heart.text.square.fill" size={23} color={mint} /></View>
           <View style={styles.settingsBody}>
             <Text style={styles.settingsTitle}>Apple Health</Text>
-            <Text style={styles.settingsCopy}>${health?.status === "connected" || health?.lastSyncedAt ? "Connected · Manage categories and sync" : "Not connected · Set up Apple Health"}</Text>
+            <Text style={styles.settingsCopy}>{health?.status === "connected" || health?.lastSyncedAt ? "Connected · Manage categories and sync" : "Not connected · Set up Apple Health"}</Text>
           </View>
           <IconSymbol name="chevron.right" size={19} color={muted} />
         </Pressable>
