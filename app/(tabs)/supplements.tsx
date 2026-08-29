@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Keyboard, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { router } from "expo-router";
 import { Image } from "expo-image";
 import { ScreenContainer } from "@/components/screen-container";
@@ -17,6 +17,7 @@ export default function SupplementsScreen() {
   const [matches, setMatches] = useState<CatalogueItem[]>([]);
   const [searching, setSearching] = useState(false);
   const [searchMessage, setSearchMessage] = useState("");
+  const [selectionMessage, setSelectionMessage] = useState("");
 
   useEffect(() => {
     const term = query.trim();
@@ -50,6 +51,16 @@ export default function SupplementsScreen() {
 
   const add = (nameToAdd: string) => {
     setItems((current) => current.includes(nameToAdd) ? current : [nameToAdd, ...current]);
+    setSelectionMessage(`${nameToAdd} added to your selected supplements.`);
+    setQuery("");
+    setMatches([]);
+    setSearchMessage("");
+    Keyboard.dismiss();
+  };
+
+  const remove = (nameToRemove: string) => {
+    setItems((current) => current.filter((item) => item !== nameToRemove));
+    setSelectionMessage(`${nameToRemove} removed.`);
   };
 
   return <ScreenContainer className="px-5 pt-4">
@@ -58,24 +69,28 @@ export default function SupplementsScreen() {
       <Text style={styles.title}>Keep your cabinet clear.</Text>
       <Text style={styles.subtitle}>Search live product data, scan a package, then confirm the exact flavour and serving before adding it.</Text>
 
+      <View style={styles.sectionRow}>
+        <Text style={styles.section}>Selected supplements</Text>
+        <Pressable onPress={() => setShowAdd(!showAdd)}><Text style={styles.link}>{showAdd ? "Close" : "+ Add manually"}</Text></Pressable>
+      </View>
+      {selectionMessage ? <Text style={styles.selectionMessage}>{selectionMessage}</Text> : null}
+      {showAdd ? <View style={styles.form}>
+        <TextInput value={name} onChangeText={setName} placeholder="Supplement or powder name" placeholderTextColor="#718071" style={styles.input} />
+        <Pressable style={styles.button} onPress={() => { if (name.trim()) { add(name.trim()); setName(""); setShowAdd(false); } }}><Text style={styles.buttonText}>Add confirmed product</Text></Pressable>
+      </View> : null}
+      {items.length ? <View style={styles.selectedList}>{items.map((item) => <View style={styles.item} key={item}>
+        <View style={styles.icon}><IconSymbol name="pills.fill" size={19} color={mint} /></View>
+        <View style={styles.productBody}><Text style={styles.productName}>{item}</Text><Text style={styles.productMeta}>Selected · review serving and label details</Text></View>
+        <Pressable onPress={() => remove(item)}><Text style={styles.remove}>Remove</Text></Pressable>
+      </View>)}</View> : <Text style={styles.empty}>Nothing selected yet. Search below or add a confirmed product.</Text>}
+
       <View style={styles.search}>
         <IconSymbol name="magnifyingglass" size={18} color={muted} />
-        <TextInput value={query} onChangeText={setQuery} placeholder="Search protein, creatine, brand or flavour" placeholderTextColor="#718071" style={styles.searchInput} />
-      </View>
-      <View style={styles.actions}>
-        <Pressable style={styles.action} onPress={() => router.push("/scan?mode=supplement" as any)}><IconSymbol name="barcode.viewfinder" size={17} color={mint} /><Text style={styles.actionText}>Scan barcode</Text></Pressable>
-        <Pressable style={styles.action} onPress={() => router.push("/scan?mode=supplement" as any)}><IconSymbol name="camera.fill" size={17} color={mint} /><Text style={styles.actionText}>Label photo</Text></Pressable>
-      </View>
-
-      <View style={styles.timing}>
-        <Text style={styles.cardTitle}>Today’s timing</Text>
-        <Text style={styles.timingLine}><Text style={styles.time}>Morning</Text> Check label directions and personal context</Text>
-        <Text style={styles.timingLine}><Text style={styles.time}>Before workout</Text> Confirm caffeine and overlapping ingredients</Text>
-        <Text style={styles.timingLine}><Text style={styles.time}>Post-workout</Text> Log powder nutrition only once</Text>
+        <TextInput value={query} onChangeText={(value) => { setQuery(value); setSelectionMessage(""); }} placeholder="Search protein, creatine, brand or flavour" placeholderTextColor="#718071" style={styles.searchInput} />
       </View>
 
       {query.trim().length > 1 ? <View style={styles.results}>
-        <Text style={styles.section}>Live product matches</Text>
+        <Text style={styles.section}>Search results</Text>
         {searching ? <Text style={styles.searchStatus}>Searching Australian and global products…</Text> : null}
         {searchMessage ? <Text style={styles.empty}>{searchMessage}</Text> : null}
         {matches.map((item) => <Pressable key={item.id} style={styles.product} onPress={() => add(item.name)}>
@@ -89,16 +104,11 @@ export default function SupplementsScreen() {
         </Pressable>)}
       </View> : null}
 
-      <View style={styles.sectionRow}><Text style={styles.section}>Your cabinet</Text><Pressable onPress={() => setShowAdd(!showAdd)}><Text style={styles.link}>{showAdd ? "Close" : "+ Add"}</Text></Pressable></View>
-      {showAdd ? <View style={styles.form}>
-        <TextInput value={name} onChangeText={setName} placeholder="Supplement or powder name" placeholderTextColor="#718071" style={styles.input} />
-        <Pressable style={styles.button} onPress={() => { if (name.trim()) { add(name.trim()); setName(""); setShowAdd(false); } }}><Text style={styles.buttonText}>Add confirmed product</Text></Pressable>
-      </View> : null}
-      {items.length ? items.map((item) => <View style={styles.item} key={item}>
-        <View style={styles.icon}><IconSymbol name="pills.fill" size={19} color={mint} /></View>
-        <View style={styles.productBody}><Text style={styles.productName}>{item}</Text><Text style={styles.productMeta}>Serving and active ingredients · review label</Text><Text style={styles.productSource}>Schedule · servings remaining · taken log</Text></View>
-        <IconSymbol name="chevron.right" size={18} color={muted} />
-      </View>) : <Text style={styles.empty}>Your cabinet is empty. Search above, scan a label, or add a confirmed product.</Text>}
+      <View style={styles.actions}>
+        <Pressable style={styles.action} onPress={() => router.push("/scan?mode=supplement" as any)}><IconSymbol name="barcode.viewfinder" size={17} color={mint} /><Text style={styles.actionText}>Scan barcode</Text></Pressable>
+        <Pressable style={styles.action} onPress={() => router.push("/scan?mode=supplement" as any)}><IconSymbol name="camera.fill" size={17} color={mint} /><Text style={styles.actionText}>Label photo</Text></Pressable>
+      </View>
+
       <View style={styles.notice}><Text style={styles.noticeTitle}>Duplicate-ingredient check</Text><Text style={styles.noticeCopy}>PulseCoach will flag overlapping caffeine, vitamins, or minerals across selected products. Check the label and ask a pharmacist or doctor when unsure.</Text></View>
       <Text style={styles.note}>Live results currently come from Open Food Facts. Some vitamins and specialist supplements will still require a barcode, label photo, or manual confirmed entry until another licensed supplement source is connected.</Text>
       <Pressable style={styles.secondary} onPress={() => router.push("/peptides" as any)}><IconSymbol name="book.fill" size={18} color={mint} /><Text style={styles.secondaryText}>Open research library</Text></Pressable>
@@ -116,12 +126,10 @@ const styles = StyleSheet.create({
   actions: { flexDirection: "row", gap: 9 },
   action: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7, backgroundColor: "#2B3B27", borderRadius: 13, padding: 12 },
   actionText: { color: mint, fontWeight: "800", fontSize: 12 },
-  timing: { backgroundColor: "#202A21", borderRadius: 18, padding: 15, borderWidth: 1, borderColor: "#354536", gap: 9 },
-  cardTitle: { color: "#F4F7F0", fontSize: 16, fontWeight: "800" },
-  timingLine: { color: muted, fontSize: 11, lineHeight: 16 },
-  time: { color: mint, fontWeight: "800" },
   results: { backgroundColor: "#1B231D", borderRadius: 17, padding: 13, gap: 9, borderWidth: 1, borderColor: "#354536" },
   searchStatus: { color: muted, fontSize: 11, fontStyle: "italic" },
+  selectionMessage: { color: mint, fontSize: 11, fontWeight: "800" },
+  selectedList: { gap: 8 },
   sectionRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   section: { color: "#F4F7F0", fontSize: 18, fontWeight: "800" },
   link: { color: mint, fontWeight: "800", fontSize: 12 },
@@ -139,6 +147,7 @@ const styles = StyleSheet.create({
   input: { backgroundColor: "#111513", color: "#F4F7F0", borderRadius: 12, padding: 13, borderWidth: 1, borderColor: "#2D392E" },
   button: { backgroundColor: mint, borderRadius: 13, padding: 13, alignItems: "center" },
   buttonText: { color: "#111513", fontWeight: "800" },
+  remove: { color: "#F7CF77", fontSize: 10, fontWeight: "800" },
   item: { backgroundColor: "#1B231D", borderRadius: 17, padding: 14, flexDirection: "row", alignItems: "center", gap: 12, borderWidth: 1, borderColor: "#263128" },
   notice: { backgroundColor: "#2A241A", borderRadius: 17, padding: 15, borderWidth: 1, borderColor: "#57482D" },
   noticeTitle: { color: "#F7CF77", fontSize: 13, fontWeight: "800" },
