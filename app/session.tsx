@@ -7,6 +7,7 @@ import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useAuth } from "@/hooks/use-auth";
 import { DEFAULT_PROFILE_PREFERENCES, loadProfilePreferences, type ProfilePreferences } from "@/lib/profile-preferences";
 import { getExerciseProgression, getWorkoutPlan, loadActiveWorkoutPlan, loadCompletedWorkouts, saveCompletedWorkout, type ActiveWorkoutPlan, type CompletedWorkout, type WorkoutSetLog } from "@/lib/workout-log";
+import { completedSetCount, protectCompletedSets } from "@/lib/workout-personalisation";
 
 const mint = "#B8F36B";
 const muted = "#A8B3A6";
@@ -24,6 +25,7 @@ export default function SessionScreen() {
   const [weight, setWeight] = useState("");
   const [feedback, setFeedback] = useState("");
   const [finished, setFinished] = useState(false);
+  const [switchPromptOpen, setSwitchPromptOpen] = useState(false);
 
   useEffect(() => {
     void Promise.all([loadProfilePreferences(userKey), loadActiveWorkoutPlan(userKey), loadCompletedWorkouts(userKey)]).then(([savedProfile, savedPlan, savedHistory]) => {
@@ -90,6 +92,23 @@ export default function SessionScreen() {
     }
   };
 
+  const completedSets = completedSetCount(logs);
+
+  const savePartialAndSwitch = async () => {
+    await saveCompletedWorkout(userKey, {
+      title: `${plan.title} (partial)`,
+      durationMinutes: plan.durationMinutes,
+      exercises: protectCompletedSets(plan.exercises, logs),
+    });
+    Speech.stop();
+    router.replace("/workout");
+  };
+
+  const requestWorkoutSwitch = () => {
+    if (completedSets > 0) setSwitchPromptOpen(true);
+    else router.replace("/workout");
+  };
+
   if (finished) {
     const totalSets = logs.reduce((total, sets) => total + sets.length, 0);
     return <ScreenContainer edges={["top", "bottom", "left", "right"]} className="px-5 pt-4"><View style={styles.finishContent}>
@@ -102,7 +121,14 @@ export default function SessionScreen() {
 
   return <ScreenContainer edges={["top", "bottom", "left", "right"]} className="px-5 pt-4">
     <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-      <Pressable onPress={() => router.back()}><Text style={styles.back}>‹ Exit session</Text></Pressable>
+      <Pressable onPress={requestWorkoutSwitch} accessibilityRole="button"><Text style={styles.back}>‹ Exit session</Text></Pressable>
+      {switchPromptOpen ? <View style={styles.switchCard} accessibilityLabel={`Protect ${completedSets} completed sets before switching workouts`}>
+        <Text style={styles.switchTitle}>Keep your {completedSets} completed {completedSets === 1 ? "set" : "sets"}?</Text>
+        <Text style={styles.switchCopy}>Choose what to do before switching workouts.</Text>
+        <Pressable style={styles.switchPrimary} onPress={() => setSwitchPromptOpen(false)} accessibilityRole="button"><Text style={styles.switchPrimaryText}>Continue current workout</Text></Pressable>
+        <Pressable style={styles.switchSecondary} onPress={() => void savePartialAndSwitch()} accessibilityRole="button"><Text style={styles.switchSecondaryText}>Save partial and switch</Text></Pressable>
+        <Pressable style={styles.switchDanger} onPress={() => { Speech.stop(); router.replace("/workout"); }} accessibilityRole="button"><Text style={styles.switchDangerText}>Discard and switch</Text></Pressable>
+      </View> : null}
       <View style={styles.top}><View style={styles.flex}><Text style={styles.eyebrow}>EXERCISE {exerciseIndex + 1} OF {plan.exercises.length}</Text><Text style={styles.title}>{exercise.name}</Text><Text style={styles.meta}>{timedExercise ? exercise.repTarget : `${exercise.repTarget} reps · Set ${nextSetNumber} of ${exercise.sets}`}</Text></View><View style={styles.timer}><Text style={styles.timerText}>{completedForExercise.length}</Text><Text style={styles.timerLabel}>SETS</Text></View></View>
 
       <View style={styles.formCard}><View style={styles.figure}><IconSymbol name="dumbbell.fill" size={42} color={mint} /></View><Text style={styles.formTitle}>Log what you completed.</Text><Text style={styles.formCopy}>{timedExercise ? "Enter the time you completed. Work at an intensity you can control and recover from safely." : "Use a controlled range that feels stable. Leave weight blank for bodyweight movements."}</Text></View>
@@ -129,6 +155,15 @@ export default function SessionScreen() {
 
 const styles = StyleSheet.create({
   content: { paddingBottom: 25, gap: 18 },
+  switchCard: { backgroundColor: "#2A241A", borderRadius: 18, padding: 15, gap: 10, borderWidth: 1, borderColor: "#57482D" },
+  switchTitle: { color: "#F7CF77", fontSize: 15, fontWeight: "900" },
+  switchCopy: { color: "#D4C39D", fontSize: 12, lineHeight: 17 },
+  switchPrimary: { backgroundColor: mint, borderRadius: 12, padding: 12, alignItems: "center" },
+  switchPrimaryText: { color: "#111513", fontWeight: "900" },
+  switchSecondary: { backgroundColor: "#2C3B25", borderRadius: 12, padding: 12, alignItems: "center" },
+  switchSecondaryText: { color: mint, fontWeight: "800" },
+  switchDanger: { borderRadius: 12, padding: 10, alignItems: "center" },
+  switchDangerText: { color: "#F7A6A6", fontWeight: "800", fontSize: 11 },
   flex: { flex: 1 },
   back: { color: mint, fontSize: 15, fontWeight: "700" },
   top: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginTop: 4, gap: 12 },
