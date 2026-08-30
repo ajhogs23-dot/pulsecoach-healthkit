@@ -1,6 +1,7 @@
 import { useCallback, useState } from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
+import { TabBackground } from "@/components/tab-background";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useAuth } from "@/hooks/use-auth";
@@ -190,6 +191,7 @@ export default function WorkoutScreen() {
   };
 
   if (!showBuilder) return <ScreenContainer className="px-5 pt-4">
+    <TabBackground source={require("@/assets/images/tab-backgrounds/workout.png")} opacity={0.22} />
     <ScrollView contentContainerStyle={styles.content}>
       <Text style={styles.eyebrow}>WORKOUT</Text>
       <Text style={styles.title}>How do you want to move?</Text>
@@ -207,6 +209,7 @@ export default function WorkoutScreen() {
   </ScreenContainer>;
 
   return <ScreenContainer className="px-5 pt-4">
+    <TabBackground source={require("@/assets/images/tab-backgrounds/workout.png")} opacity={0.18} />
     <ScrollView contentContainerStyle={styles.content}>
       <Pressable onPress={() => setShowBuilder(false)}><Text style={styles.back}>‹ All workout types</Text></Pressable>
       <Text style={styles.eyebrow}>WORKOUT BUILDER</Text>

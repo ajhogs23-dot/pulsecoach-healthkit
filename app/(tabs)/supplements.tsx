@@ -3,6 +3,7 @@ import { Keyboard, Pressable, ScrollView, StyleSheet, Text, TextInput, View } fr
 import { router } from "expo-router";
 import { Image } from "expo-image";
 import { ScreenContainer } from "@/components/screen-container";
+import { TabBackground } from "@/components/tab-background";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { searchSupplementProducts, type CatalogueItem } from "@/lib/food-catalogue";
 
@@ -69,6 +70,7 @@ export default function SupplementsScreen() {
   };
 
   return <ScreenContainer className="px-5 pt-4">
+    <TabBackground source={require("@/assets/images/tab-backgrounds/supplements.png")} opacity={0.2} />
     <ScrollView ref={scrollRef} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
       <Text style={styles.eyebrow}>SUPPLEMENTS</Text>
       <Text style={styles.title}>Keep your cabinet clear.</Text>

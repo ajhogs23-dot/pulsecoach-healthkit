@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Keyboard, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
+import { TabBackground } from "@/components/tab-background";
 import { router, useFocusEffect } from "expo-router";
 import { Image } from "expo-image";
 import { IconSymbol } from "@/components/ui/icon-symbol";
@@ -171,6 +172,7 @@ export default function NutritionScreen() {
   };
 
   return <ScreenContainer className="px-5 pt-4">
+    <TabBackground source={require("@/assets/images/tab-backgrounds/nutrition.png")} opacity={0.22} />
     <ScrollView ref={scrollRef} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
       <Text style={styles.eyebrow}>NUTRITION</Text>
       <Text style={styles.title}>Eat with clarity.</Text>
