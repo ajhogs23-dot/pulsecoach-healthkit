@@ -200,7 +200,7 @@ export default function WorkoutScreen() {
         {workoutTypes.map((type) => <Pressable key={type.title} style={({ pressed }) => [styles.typeCard, pressed && styles.pressed]} onPress={() => chooseWorkoutType(type)}>
           <View style={styles.typeMark}><Text style={styles.typeMarkText}>{type.mark}</Text></View>
           <View style={styles.flex}><Text style={styles.typeTitle}>{type.title}</Text><Text style={styles.typeDetail}>{type.detail}</Text></View>
-          <IconSymbol name="chevron.right" size={19} color={mint} />
+          <View style={styles.typeArrow}><IconSymbol name="chevron.right" size={17} color={mint} /></View>
         </Pressable>)}
       </View>
       <Pressable style={styles.checkInLink} onPress={() => router.push("/choose-workout" as any)}><Text style={styles.checkInLinkText}>Pain, limitations & readiness</Text><IconSymbol name="chevron.right" size={18} color={mint} /></Pressable>
@@ -255,12 +255,13 @@ const styles = StyleSheet.create({
   title: { color: "#F4F7F0", fontSize: 30, fontWeight: "800", letterSpacing: -0.7 },
   subtitle: { color: muted, fontSize: 14, lineHeight: 20 },
   back: { color: mint, fontSize: 13, fontWeight: "800" },
-  typeGrid: { gap: 10 },
-  typeCard: { minHeight: 104, flexDirection: "row", alignItems: "center", gap: 13, backgroundColor: "#1B231D", borderRadius: 18, padding: 15, borderWidth: 1, borderColor: "#2D392E" },
-  typeMark: { width: 50, height: 50, borderRadius: 16, alignItems: "center", justifyContent: "center", backgroundColor: "#2B3B27" },
-  typeMarkText: { color: mint, fontSize: 20, fontWeight: "900" },
-  typeTitle: { color: "#F4F7F0", fontSize: 17, fontWeight: "900", marginBottom: 4 },
-  typeDetail: { color: muted, fontSize: 12, lineHeight: 17 },
+  typeGrid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", rowGap: 10 },
+  typeCard: { width: "48.5%", aspectRatio: 1, justifyContent: "space-between", backgroundColor: "rgba(27, 35, 29, 0.94)", borderRadius: 18, padding: 14, borderWidth: 1, borderColor: "#384738" },
+  typeMark: { width: 43, height: 43, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: "#2B3B27" },
+  typeMarkText: { color: mint, fontSize: 18, fontWeight: "900" },
+  typeTitle: { color: "#F4F7F0", fontSize: 15, fontWeight: "900", marginBottom: 4, paddingRight: 10 },
+  typeDetail: { color: muted, fontSize: 10.5, lineHeight: 14 },
+  typeArrow: { position: "absolute", top: 15, right: 12 },
   checkInLink: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: "#202A21", borderRadius: 14, padding: 13, borderWidth: 1, borderColor: "#4D653D" },
   checkInLinkText: { color: mint, fontSize: 12, fontWeight: "800" },
   safetyCard: { backgroundColor: "#2A251A", borderRadius: 15, padding: 14, gap: 6, borderWidth: 1, borderColor: "#7A6330" },
