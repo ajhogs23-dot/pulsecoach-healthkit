@@ -1,10 +1,10 @@
 export type Readiness = "Low" | "Okay" | "Ready";
 
-type ExerciseLike = { name: string; focus: string };
+type ExerciseLike = { name: string; focus: string; muscleGroup?: string };
 type WorkoutLike = { completedAt: string; exercises: Array<{ name: string; completedSets: unknown[] }> };
 
 const painConflicts: Array<[RegExp, RegExp]> = [
-  [/shoulder/i, /overhead|shoulder|chest press|fly|lateral raise|front raise|dip/i],
+  [/shoulder/i, /shoulder|chest|back|overhead|press|push-up|fly|raise|dip|row|pull-up|pulldown|battle rope|boxing|burpee/i],
   [/knee/i, /squat|lunge|leg press|step-up|jump|stair/i],
   [/(?:lower )?back|spine/i, /deadlift|romanian|bent-over|good morning|back extension/i],
   [/wrist|elbow/i, /curl|pressdown|push-up|dip|skull crusher/i],
@@ -15,7 +15,7 @@ const painConflicts: Array<[RegExp, RegExp]> = [
 export function conflictsWithLimitation(exercise: ExerciseLike, limitation: string) {
   const description = limitation.trim();
   if (!description) return false;
-  const movement = `${exercise.name} ${exercise.focus}`;
+  const movement = `${exercise.name} ${exercise.focus} ${exercise.muscleGroup ?? ""}`;
   return painConflicts.some(([reportedArea, conflictingMovement]) =>
     reportedArea.test(description) && conflictingMovement.test(movement),
   );
@@ -37,7 +37,6 @@ export function personaliseExercises<T extends ExerciseLike>(
   }));
 
   return exercises
-    .filter((exercise) => !conflictsWithLimitation(exercise, limitation))
     .map((exercise, index) => ({ exercise, index }))
     .sort((a, b) => Number(recentlyCompleted.has(a.exercise.name)) - Number(recentlyCompleted.has(b.exercise.name)) || a.index - b.index)
     .map(({ exercise }) => exercise);

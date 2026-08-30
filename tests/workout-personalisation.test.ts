@@ -23,7 +23,8 @@ describe("workout personalisation", () => {
   });
 
   it("removes movements that conflict with reported limitations", () => {
-    expect(personaliseExercises(exercises, [], "sore shoulder").map((item) => item.name)).toEqual(["Push-up"]);
+    expect(personaliseExercises(exercises, [], "sore shoulder").map((item) => item.name)).toEqual(["Chest press", "Cable fly", "Push-up"]);
+    expect(conflictsWithLimitation({ name: "Push-up", focus: "Chest + triceps" }, "sore shoulder")).toBe(true);
     expect(conflictsWithLimitation({ name: "Bodyweight squat", focus: "Legs" }, "knee pain")).toBe(true);
   });
 
