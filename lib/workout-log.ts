@@ -1,6 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { ProfilePreferences } from "@/lib/profile-preferences";
 import type { MuscleGroup } from "@/lib/exercise-library";
+import type { WorkoutReadiness } from "@/lib/workout-selection";
 
 export type WorkoutExercise = {
   name: string;
@@ -15,6 +16,17 @@ export type ActiveWorkoutPlan = {
   focus: MuscleGroup;
   durationMinutes: number;
   exercises: WorkoutExercise[];
+  checkIn?: {
+    readiness: WorkoutReadiness;
+    limitation: string;
+    excludedExerciseCount: number;
+  };
+};
+
+export type WorkoutCheckIn = {
+  readiness: WorkoutReadiness;
+  limitation: string;
+  recordedOn: string;
 };
 
 export type WorkoutSetLog = {
@@ -33,6 +45,31 @@ export type CompletedWorkout = {
 
 const storageKey = (userKey: string) => `pulsecoach.workouts.${userKey}`;
 const activePlanKey = (userKey: string) => `pulsecoach.activeWorkout.${userKey}`;
+const checkInKey = (userKey: string) => `pulsecoach.workoutCheckIn.${userKey}`;
+
+export const workoutCheckInDate = (date = new Date()) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+export async function saveWorkoutCheckIn(userKey: string, checkIn: Omit<WorkoutCheckIn, "recordedOn">) {
+  const saved: WorkoutCheckIn = { ...checkIn, limitation: checkIn.limitation.trim(), recordedOn: workoutCheckInDate() };
+  await AsyncStorage.setItem(checkInKey(userKey), JSON.stringify(saved));
+  return saved;
+}
+
+export async function loadWorkoutCheckIn(userKey: string): Promise<WorkoutCheckIn | undefined> {
+  const raw = await AsyncStorage.getItem(checkInKey(userKey));
+  if (!raw) return undefined;
+  try {
+    const parsed = JSON.parse(raw) as WorkoutCheckIn;
+    return parsed.recordedOn === workoutCheckInDate() ? parsed : undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 export function getWorkoutPlan(profile: ProfilePreferences): { title: string; durationMinutes: number; exercises: WorkoutExercise[] } {
   const build = profile.goal === "Build strength";

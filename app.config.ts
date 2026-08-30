@@ -28,7 +28,7 @@ const schemeFromBundleId = `manus${timestamp}`;
 
 const env = {
   // App branding - update these values directly (do not use env vars)
-  appName: "PulseCoach",
+  appName: "VELTURA",
   appSlug: "pulsecoach",
   // S3 URL of the app logo - set this to the URL returned by generate_image when creating custom logo
   // Leave empty to use the default icon from assets/images/icon.png
@@ -63,13 +63,14 @@ const config: ExpoConfig = {
     bundleIdentifier: env.iosBundleId,
     "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
-        "NSHealthShareUsageDescription": "PulseCoach reads steps, active energy, distance, heart rate, and workouts to personalize your coaching.",
-        "NSHealthUpdateUsageDescription": "PulseCoach can save completed workouts and activity summaries when you choose.",
-        "NSSpeechRecognitionUsageDescription": "PulseCoach uses speech recognition to understand hands-free workout commands.",
-        "NSLocationWhenInUseUsageDescription": "PulseCoach uses your location while an activity is active to draw your route.",
-        "NSLocationAlwaysAndWhenInUseUsageDescription": "PulseCoach uses background location only when you enable an active activity session, so route tracking can continue with the screen locked.",
-        "NSMotionUsageDescription": "PulseCoach uses motion data to help identify activity and movement periods.",
-        "UIBackgroundModes": ["location", "processing"]
+        "NSHealthShareUsageDescription": "VELTURA reads steps, active energy, distance, heart rate, and workouts to personalize your coaching.",
+        "NSHealthUpdateUsageDescription": "VELTURA can save completed workouts and activity summaries when you choose.",
+        "NSSpeechRecognitionUsageDescription": "VELTURA uses speech recognition to understand hands-free workout commands.",
+        "NSLocationWhenInUseUsageDescription": "VELTURA uses your location while an activity is active to draw your route.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "VELTURA uses background location only when you enable an active activity session, so route tracking can continue with the screen locked.",
+        "NSMotionUsageDescription": "VELTURA uses motion data to help identify activity and movement periods.",
+        "NSPhotoLibraryUsageDescription": "VELTURA accesses your photo library only when you choose a photo to add to your profile or fitness records.",
+        "UIBackgroundModes": ["location"]
       }
   },
   android: {
@@ -106,8 +107,8 @@ const config: ExpoConfig = {
     "expo-router",
     "expo-asset",
     ["@kingstinct/react-native-healthkit", {
-      NSHealthShareUsageDescription: "PulseCoach reads the health categories you approve to show accurate movement and recovery summaries.",
-      NSHealthUpdateUsageDescription: "PulseCoach does not write health records to Apple Health.",
+      NSHealthShareUsageDescription: "VELTURA reads the health categories you approve to show accurate movement and recovery summaries.",
+      NSHealthUpdateUsageDescription: "VELTURA does not write health records to Apple Health.",
       background: true,
     }],
     [

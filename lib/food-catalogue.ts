@@ -140,7 +140,7 @@ const fields = [
 const SEARCH_TIMEOUT_MS = 8_000;
 const requestHeaders = {
   Accept: "application/json",
-  "X-User-Agent": "PulseCoach/1.0 (Open Food Facts search)",
+  "X-User-Agent": "VELTURA/1.0 (Open Food Facts search)",
 };
 
 export class CatalogueSearchError extends Error {

@@ -23,4 +23,4 @@ export function safeSupplementTimingLabel(category: string) {
   return "Choose timing from the product label or a qualified professional";
 }
 
-export const PEPTIDE_SAFETY_COPY = "PulseCoach does not select peptides, provide doses, calculate vial mixing, or convert doses into injection units.";
+export const PEPTIDE_SAFETY_COPY = "VELTURA does not select peptides, provide doses, calculate vial mixing, or convert doses into injection units.";

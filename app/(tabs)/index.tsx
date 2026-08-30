@@ -102,7 +102,7 @@ export default function HomeScreen() {
           </View>
           <Pressable style={({ pressed }) => [styles.talkButton, pressed && styles.pressed]} onPress={() => router.push("/coach")}>
             <IconSymbol name="mic.fill" size={21} color={bg} />
-            <Text style={styles.talkText}>Talk to PulseCoach</Text>
+            <Text style={styles.talkText}>Talk to VELTURA</Text>
             <IconSymbol name="chevron.right" size={20} color={bg} />
           </Pressable>
         </View>
@@ -147,7 +147,7 @@ export default function HomeScreen() {
           <View style={styles.actionBody}><Text style={styles.actionTitle}>Plan your training</Text><Text style={styles.actionCopy}>A focused session based on your goal.</Text></View>
           <IconSymbol name="chevron.right" size={20} color={muted} />
         </Pressable>
-        <Pressable style={styles.actionCard} onPress={() => router.push("/activity" as any)}><View style={[styles.actionIcon, { backgroundColor: "#2B313B" }]}><IconSymbol name="chart.bar.fill" size={22} color="#87C7E8" /></View><View style={styles.actionBody}><Text style={styles.actionTitle}>Review today’s activity</Text><Text style={styles.actionCopy}>Steps, calories burned, and manual entries.</Text></View><IconSymbol name="chevron.right" size={20} color={muted} /></Pressable><Text style={styles.disclaimer}>PulseCoach offers general wellness guidance, not medical advice. Listen to your body and consult a qualified professional for health concerns.</Text>
+        <Pressable style={styles.actionCard} onPress={() => router.push("/activity" as any)}><View style={[styles.actionIcon, { backgroundColor: "#2B313B" }]}><IconSymbol name="chart.bar.fill" size={22} color="#87C7E8" /></View><View style={styles.actionBody}><Text style={styles.actionTitle}>Review today’s activity</Text><Text style={styles.actionCopy}>Steps, calories burned, and manual entries.</Text></View><IconSymbol name="chevron.right" size={20} color={muted} /></Pressable><Text style={styles.disclaimer}>VELTURA offers general wellness guidance, not medical advice. Listen to your body and consult a qualified professional for health concerns.</Text>
       </ScrollView>
     </ScreenContainer>
   );

@@ -3,5 +3,5 @@ export function isValidAccountForm(email: string, password: string) {
 }
 
 export function identityLinkingCopy(provider: string) {
-  return `If this email already exists, link ${provider} to the existing PulseCoach account instead of creating a duplicate.`;
+  return `If this email already exists, link ${provider} to the existing VELTURA account instead of creating a duplicate.`;
 }

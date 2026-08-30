@@ -137,7 +137,7 @@ export default function SupplementsScreen() {
         <Pressable style={styles.action} onPress={() => router.push("/scan?mode=supplement" as any)}><IconSymbol name="camera.fill" size={17} color={mint} /><Text style={styles.actionText}>Label photo</Text></Pressable>
       </View>
 
-      <View style={styles.notice}><Text style={styles.noticeTitle}>Duplicate-ingredient check</Text><Text style={styles.noticeCopy}>PulseCoach will flag overlapping caffeine, vitamins, or minerals across selected products. Check the label and ask a pharmacist or doctor when unsure.</Text></View>
+      <View style={styles.notice}><Text style={styles.noticeTitle}>Duplicate-ingredient check</Text><Text style={styles.noticeCopy}>VELTURA will flag overlapping caffeine, vitamins, or minerals across selected products. Check the label and ask a pharmacist or doctor when unsure.</Text></View>
       <Text style={styles.note}>Live results currently come from Open Food Facts. Some vitamins and specialist supplements will still require a barcode, label photo, or manual confirmed entry until another licensed supplement source is connected.</Text>
       <Pressable style={styles.secondary} onPress={() => router.push("/peptides" as any)}><IconSymbol name="book.fill" size={18} color={mint} /><Text style={styles.secondaryText}>Open research library</Text></Pressable>
     </ScrollView>

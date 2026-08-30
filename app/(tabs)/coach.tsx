@@ -135,13 +135,13 @@ export default function CoachScreen() {
         maxAlternatives: 1,
         continuous: false,
         addsPunctuation: true,
-        contextualStrings: ["PulseCoach", "macros", "creatine", "HealthKit"],
+        contextualStrings: ["VELTURA", "macros", "creatine", "HealthKit"],
         iosTaskHint: "dictation",
       });
     } catch {
       setListening(false);
       setRecognitionMessage(
-        "PulseCoach could not start speech recognition. Check microphone access or type your prompt instead.",
+        "VELTURA could not start speech recognition. Check microphone access or type your prompt instead.",
       );
     }
   };
@@ -161,7 +161,7 @@ export default function CoachScreen() {
               <Text style={styles.logoText}>⌁</Text>
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.coachName}>PulseCoach</Text>
+              <Text style={styles.coachName}>VELTURA</Text>
               <Text style={styles.coachStatus}>
                 {listening ? "Listening now" : coachMutation.isPending ? "Thinking" : "Ready when you are"}
               </Text>
@@ -202,7 +202,7 @@ export default function CoachScreen() {
               style={({ pressed }) => [styles.send, pressed && styles.pressed]}
               onPress={() => ask(prompt)}
               accessibilityRole="button"
-              accessibilityLabel="Send prompt to PulseCoach"
+              accessibilityLabel="Send prompt to VELTURA"
             >
               <IconSymbol name="arrow.up" size={18} color="#111513" />
             </Pressable>

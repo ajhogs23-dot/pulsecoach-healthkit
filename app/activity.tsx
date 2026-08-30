@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 import { AppState, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
-import { router, useFocusEffect } from "expo-router";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 
 import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
@@ -11,14 +11,16 @@ import { addManualActivity, loadManualActivities, removeManualActivity, summaris
 const mint = "#B8F36B";
 const muted = "#A8B3A6";
 const storageKey = (user: { openId?: string; id?: number } | null) => user?.openId ?? (user?.id ? String(user.id) : "local-user");
-type ActivityType = "Strength" | "Cardio" | "Walk";
+type ActivityType = "Strength" | "Cardio" | "Run" | "Walk" | "Cycle" | "Other activity";
 
 export default function ActivityScreen() {
+  const { type: requestedType } = useLocalSearchParams<{ type?: string }>();
   const { user } = useAuth({ autoFetch: false });
   const userKey = storageKey(user);
   const [health, setHealth] = useState<HealthSyncSnapshot | null>(null);
   const [manualActivities, setManualActivities] = useState<ManualActivity[]>([]);
-  const [activityType, setActivityType] = useState<ActivityType>("Strength");
+  const activityTypes: ActivityType[] = ["Strength", "Cardio", "Run", "Walk", "Cycle", "Other activity"];
+  const [activityType, setActivityType] = useState<ActivityType>(activityTypes.includes(requestedType as ActivityType) ? requestedType as ActivityType : "Strength");
   const [minutes, setMinutes] = useState("");
   const [calories, setCalories] = useState("");
   const [feedback, setFeedback] = useState("");
@@ -118,7 +120,7 @@ export default function ActivityScreen() {
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Add an activity</Text>
           <Text style={styles.cardCopy}>
-            Choose the activity first, then record the time you completed. PulseCoach will not invent calories when none are available.
+            Choose the activity first, then record the time you completed. VELTURA will not invent calories when none are available.
           </Text>
 
           <View style={styles.row}>
@@ -155,7 +157,7 @@ export default function ActivityScreen() {
           </View>
 
           <View style={styles.choiceRow}>
-            {(["Strength", "Cardio", "Walk"] as ActivityType[]).map((type) => {
+            {activityTypes.map((type) => {
               const selected = activityType === type;
               return (
                 <Pressable
@@ -203,7 +205,7 @@ export default function ActivityScreen() {
         <View style={styles.info}>
           <Text style={styles.infoTitle}>No data is a valid state</Text>
           <Text style={styles.infoCopy}>
-            PulseCoach won’t invent burned calories or steps. Connect Apple Health or add a session manually when you know what you did.
+            VELTURA won’t invent burned calories or steps. Connect Apple Health or add a session manually when you know what you did.
           </Text>
         </View>
         <Text style={styles.note}>

@@ -8,6 +8,6 @@ describe("account helpers", () => {
     expect(isValidAccountForm("alex@example.com", "short")).toBe(false);
   });
   it("explains provider linking instead of duplicate profiles", () => {
-    expect(identityLinkingCopy("Apple")).toContain("existing PulseCoach account");
+    expect(identityLinkingCopy("Apple")).toContain("existing VELTURA account");
   });
 });

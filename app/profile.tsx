@@ -87,7 +87,7 @@ export default function ProfileScreen() {
       <Text onPress={() => router.back()} style={styles.back}>‹ Back</Text>
       <Text style={styles.eyebrow}>YOUR PROFILE</Text>
       <Text style={styles.title}>Make coaching fit you.</Text>
-      <Text style={styles.subtitle}>These settings stay on this device and shape PulseCoach’s daily guidance.</Text>
+      <Text style={styles.subtitle}>These settings stay on this device and shape VELTURA’s daily guidance.</Text>
 
       <View style={styles.group}>
         <Text style={styles.groupTitle}>Your name</Text>
@@ -138,7 +138,7 @@ export default function ProfileScreen() {
       </View>
 
       <View style={styles.feedback}>
-        <Text style={styles.feedbackTitle}>Help shape PulseCoach</Text>
+        <Text style={styles.feedbackTitle}>Help shape VELTURA</Text>
         <Text style={styles.feedbackCopy}>Suggest a feature, report an issue, or tell us what would make coaching more useful.</Text>
         <TextInput value={feedback} onChangeText={setFeedback} placeholder="Your idea or issue…" placeholderTextColor="#718071" multiline style={styles.feedbackInput} />
         <Pressable style={styles.feedbackButton} onPress={() => { if (feedback.trim()) feedbackMutation.mutate({ category: "feature", message: feedback.trim(), contactAllowed: false }); }}><Text style={styles.feedbackButtonText}>{feedbackMutation.isPending ? "Sending…" : sent ? "Thanks — feedback received" : "Send feedback"}</Text></Pressable>

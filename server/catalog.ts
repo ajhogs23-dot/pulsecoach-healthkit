@@ -3,7 +3,7 @@ export type CatalogMatch = { barcode?: string; name: string; brand?: string; ima
 function numberOrNull(value: unknown) { const parsed = Number(value); return Number.isFinite(parsed) ? parsed : null; }
 
 export async function lookupOpenFoodFacts(barcode: string): Promise<CatalogMatch | null> {
-  const response = await fetch(`https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(barcode)}.json`, { headers: { "User-Agent": "PulseCoach/1.0 (nutrition lookup)" } });
+  const response = await fetch(`https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(barcode)}.json`, { headers: { "User-Agent": "VELTURA/1.0 (nutrition lookup)" } });
   if (!response.ok) return null;
   const payload = await response.json() as { status?: number; product?: Record<string, unknown> };
   if (payload.status !== 1 || !payload.product) return null;

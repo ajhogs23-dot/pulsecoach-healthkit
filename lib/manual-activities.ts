@@ -1,6 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-export type ManualActivityType = "Strength" | "Cardio" | "Walk";
+export type ManualActivityType = "Strength" | "Cardio" | "Run" | "Walk" | "Cycle" | "Other activity";
 
 export type ManualActivity = {
   id: string;

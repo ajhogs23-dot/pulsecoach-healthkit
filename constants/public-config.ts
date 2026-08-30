@@ -1,5 +1,5 @@
 /**
- * Safe public values copied from the managed PulseCoach project.
+ * Safe public values copied from the managed VELTURA project.
  * These values are intentionally client-side configuration only.
  */
 export const MANAGED_PUBLIC_DEFAULTS = {

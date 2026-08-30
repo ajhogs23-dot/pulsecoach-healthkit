@@ -105,6 +105,8 @@ export default function SessionScreen() {
       <Pressable onPress={() => router.back()}><Text style={styles.back}>‹ Exit session</Text></Pressable>
       <View style={styles.top}><View style={styles.flex}><Text style={styles.eyebrow}>EXERCISE {exerciseIndex + 1} OF {plan.exercises.length}</Text><Text style={styles.title}>{exercise.name}</Text><Text style={styles.meta}>{timedExercise ? exercise.repTarget : `${exercise.repTarget} reps · Set ${nextSetNumber} of ${exercise.sets}`}</Text></View><View style={styles.timer}><Text style={styles.timerText}>{completedForExercise.length}</Text><Text style={styles.timerLabel}>SETS</Text></View></View>
 
+      {activePlan?.checkIn && (activePlan.checkIn.limitation || activePlan.checkIn.readiness !== "Ready") ? <View style={styles.checkInCard}><Text style={styles.checkInTitle}>TODAY’S CHECK-IN</Text>{activePlan.checkIn.limitation ? <Text style={styles.checkInCopy}>Pain/limitation noted: {activePlan.checkIn.limitation}. {activePlan.checkIn.excludedExerciseCount} potentially aggravating exercise{activePlan.checkIn.excludedExerciseCount === 1 ? " was" : "s were"} excluded.</Text> : null}<Text style={styles.checkInCopy}>Readiness: {activePlan.checkIn.readiness}.{activePlan.checkIn.readiness === "Low" ? " Keep the lighter volume and stop if symptoms worsen." : ""}</Text></View> : null}
+
       <View style={styles.formCard}><View style={styles.figure}><IconSymbol name="dumbbell.fill" size={42} color={mint} /></View><Text style={styles.formTitle}>Log what you completed.</Text><Text style={styles.formCopy}>{timedExercise ? "Enter the time you completed. Work at an intensity you can control and recover from safely." : "Use a controlled range that feels stable. Leave weight blank for bodyweight movements."}</Text></View>
 
       {!timedExercise && progression.lastWeightKg !== undefined ? <View style={styles.progressionCard}>
@@ -139,6 +141,9 @@ const styles = StyleSheet.create({
   timerText: { color: "#F4F7F0", fontWeight: "800", fontSize: 22 },
   timerLabel: { color: mint, fontSize: 9, fontWeight: "800" },
   formCard: { minHeight: 190, backgroundColor: "#1B231D", borderRadius: 25, borderWidth: 1, borderColor: "#2D392E", alignItems: "center", justifyContent: "center", padding: 22 },
+  checkInCard: { backgroundColor: "#2A251A", borderRadius: 15, padding: 14, gap: 6, borderWidth: 1, borderColor: "#7A6330" },
+  checkInTitle: { color: "#F7CF77", fontSize: 10, fontWeight: "900", letterSpacing: 1 },
+  checkInCopy: { color: "#E5D6B3", fontSize: 11, lineHeight: 16 },
   figure: { width: 72, height: 72, borderRadius: 24, backgroundColor: "#2C3321", alignItems: "center", justifyContent: "center", marginBottom: 15 },
   formTitle: { color: "#F4F7F0", fontSize: 20, fontWeight: "800", textAlign: "center" },
   formCopy: { color: muted, fontSize: 13, lineHeight: 19, textAlign: "center", marginTop: 7 },

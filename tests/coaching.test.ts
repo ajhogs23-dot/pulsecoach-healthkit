@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { healthConnectionLabel, nutritionPrompt, workoutFocus } from "../lib/coaching";
 
-describe("PulseCoach coaching helpers", () => {
+describe("VELTURA coaching helpers", () => {
   it("keeps nutrition guidance aligned to a strength goal and dietary preference", () => {
     expect(nutritionPrompt("strength", true)).toContain("beans, tofu, lentils");
     expect(nutritionPrompt("strength", true)).toContain("supports training");
