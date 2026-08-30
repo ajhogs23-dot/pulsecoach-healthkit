@@ -203,6 +203,7 @@ export default function WorkoutScreen() {
           <View style={styles.typeArrow}><IconSymbol name="chevron.right" size={17} color={mint} /></View>
         </Pressable>)}
       </View>
+      <Pressable style={styles.historyLink} onPress={() => router.push("/history" as any)}><View><Text style={styles.historyLinkTitle}>Your activity history</Text><Text style={styles.historyLinkCopy}>Past runs, route maps, workouts and sharing</Text></View><IconSymbol name="chevron.right" size={18} color={mint} /></Pressable>
       <Pressable style={styles.checkInLink} onPress={() => router.push("/choose-workout" as any)}><Text style={styles.checkInLinkText}>Pain, limitations & readiness</Text><IconSymbol name="chevron.right" size={18} color={mint} /></Pressable>
       <Text style={styles.note}>Your saved check-in is applied when VELTURA builds exercise suggestions. Activities that may heavily use a painful area should show a warning rather than disappearing.</Text>
     </ScrollView>
@@ -262,6 +263,9 @@ const styles = StyleSheet.create({
   typeTitle: { color: "#F4F7F0", fontSize: 15, fontWeight: "900", marginBottom: 4, paddingRight: 10 },
   typeDetail: { color: muted, fontSize: 10.5, lineHeight: 14 },
   typeArrow: { position: "absolute", top: 15, right: 12 },
+  historyLink: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: "rgba(27, 35, 29, 0.95)", borderRadius: 15, padding: 14, borderWidth: 1, borderColor: "#384738" },
+  historyLinkTitle: { color: "#F4F7F0", fontSize: 14, fontWeight: "900" },
+  historyLinkCopy: { color: muted, fontSize: 10.5, marginTop: 3 },
   checkInLink: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: "#202A21", borderRadius: 14, padding: 13, borderWidth: 1, borderColor: "#4D653D" },
   checkInLinkText: { color: mint, fontSize: 12, fontWeight: "800" },
   safetyCard: { backgroundColor: "#2A251A", borderRadius: 15, padding: 14, gap: 6, borderWidth: 1, borderColor: "#7A6330" },
