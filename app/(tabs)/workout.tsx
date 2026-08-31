@@ -182,6 +182,10 @@ export default function WorkoutScreen() {
       router.push("/run" as any);
       return;
     }
+    if (type.title === "Walk") {
+      router.push("/walk" as any);
+      return;
+    }
     if (type.action === "builder") {
       if (type.title === "Mobility & recovery") chooseFocus("Core");
       setShowBuilder(true);

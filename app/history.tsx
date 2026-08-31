@@ -14,9 +14,10 @@ import { loadCompletedWorkouts, type CompletedWorkout } from "@/lib/workout-log"
 const mint = "#B8F36B";
 const muted = "#A8B3A6";
 type RunPoint = LatLng & { altitude: number; timestamp: number };
-type SavedRun = { id: string; completedAt: string; seconds: number; distanceMetres: number; elevationGain: number; elevationLoss: number; heartRate?: number; points: RunPoint[] };
-type Filter = "All" | "Runs" | "Workouts";
+type SavedRun = { id: string; completedAt: string; seconds: number; distanceMetres: number; elevationGain: number; elevationLoss: number; heartRate?: number; points: RunPoint[]; activity?: "Run" | "Walk"; steps?: number; calories?: number };
+type Filter = "All" | "Runs" | "Walks" | "Workouts";
 const runKey = (userKey: string) => `pulsecoach.runs.${userKey}`;
+const walkKey = (userKey: string) => `pulsecoach.walks.${userKey}`;
 const date = (value: string) => new Date(value).toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
 const duration = (seconds: number) => `${Math.floor(seconds / 3600) ? `${Math.floor(seconds / 3600)}h ` : ""}${Math.floor(seconds % 3600 / 60)}m ${seconds % 60}s`;
 const pace = (seconds: number, metres: number) => metres > 0 ? `${Math.floor(seconds / (metres / 1000) / 60)}:${String(Math.round(seconds / (metres / 1000) % 60)).padStart(2, "0")} /km` : "—";
@@ -34,9 +35,9 @@ export default function HistoryScreen() {
 
   useFocusEffect(useCallback(() => {
     let active = true;
-    void Promise.all([AsyncStorage.getItem(runKey(userKey)), loadCompletedWorkouts(userKey)]).then(([rawRuns, savedWorkouts]) => {
+    void Promise.all([AsyncStorage.getItem(runKey(userKey)), AsyncStorage.getItem(walkKey(userKey)), loadCompletedWorkouts(userKey)]).then(([rawRuns, rawWalks, savedWorkouts]) => {
       if (!active) return;
-      try { setRuns(rawRuns ? JSON.parse(rawRuns) : []); } catch { setRuns([]); }
+      try { const savedRuns: SavedRun[] = rawRuns ? JSON.parse(rawRuns) : []; const savedWalks: SavedRun[] = rawWalks ? JSON.parse(rawWalks) : []; setRuns([...savedRuns.map((item) => ({ ...item, activity: "Run" as const })), ...savedWalks.map((item) => ({ ...item, activity: "Walk" as const }))]); } catch { setRuns([]); }
       setWorkouts(savedWorkouts);
     });
     return () => { active = false; };
@@ -56,32 +57,32 @@ export default function HistoryScreen() {
   };
 
   const entries = [
-    ...(filter !== "Workouts" ? runs.map((run) => ({ kind: "run" as const, at: run.completedAt, run })) : []),
-    ...(filter !== "Runs" ? workouts.map((workout) => ({ kind: "workout" as const, at: workout.completedAt, workout })) : []),
+    ...(filter !== "Workouts" ? runs.filter((run) => filter === "All" || (filter === "Runs" ? run.activity !== "Walk" : run.activity === "Walk")).map((run) => ({ kind: "run" as const, at: run.completedAt, run })) : []),
+    ...(filter === "All" || filter === "Workouts" ? workouts.map((workout) => ({ kind: "workout" as const, at: workout.completedAt, workout })) : []),
   ].sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
 
   return <ScreenContainer className="px-5 pt-4">
     <ScrollView contentContainerStyle={styles.content}>
       <Pressable onPress={() => router.back()}><Text style={styles.back}>‹ Workout</Text></Pressable>
       <View><Text style={styles.eyebrow}>HISTORY</Text><Text style={styles.title}>Everything you’ve done.</Text><Text style={styles.subtitle}>Review past runs and workouts. Sharing is always your choice, and route maps remain private on the share card.</Text></View>
-      <View style={styles.filters}>{(["All", "Runs", "Workouts"] as Filter[]).map((item) => <Pressable key={item} onPress={() => setFilter(item)} style={[styles.filter, filter === item && styles.filterActive]}><Text style={[styles.filterText, filter === item && styles.filterTextActive]}>{item}</Text></Pressable>)}</View>
+      <View style={styles.filters}>{(["All", "Runs", "Walks", "Workouts"] as Filter[]).map((item) => <Pressable key={item} onPress={() => setFilter(item)} style={[styles.filter, filter === item && styles.filterActive]}><Text style={[styles.filterText, filter === item && styles.filterTextActive]}>{item}</Text></Pressable>)}</View>
       {!entries.length ? <View style={styles.empty}><Text style={styles.emptyTitle}>Your history starts here.</Text><Text style={styles.emptyCopy}>Finish a run or workout and it will appear here automatically.</Text></View> : null}
 
       {entries.map((entry) => entry.kind === "run" ? <View key={`run-${entry.run.id}`} style={styles.card}>
         <Pressable style={styles.cardTop} onPress={() => setOpenRun(openRun === entry.run.id ? undefined : entry.run.id)}>
-          <View style={styles.icon}><IconSymbol name="figure.run" size={22} color={mint} /></View><View style={styles.flex}><Text style={styles.cardTitle}>Outdoor run</Text><Text style={styles.cardMeta}>{date(entry.run.completedAt)} · {(entry.run.distanceMetres / 1000).toFixed(2)} km · {duration(entry.run.seconds)}</Text></View><IconSymbol name="chevron.right" size={18} color={muted} />
+          <View style={styles.icon}><IconSymbol name={entry.run.activity === "Walk" ? "figure.walk" : "figure.run"} size={22} color={mint} /></View><View style={styles.flex}><Text style={styles.cardTitle}>Outdoor {entry.run.activity === "Walk" ? "walk" : "run"}</Text><Text style={styles.cardMeta}>{date(entry.run.completedAt)} · {(entry.run.distanceMetres / 1000).toFixed(2)} km · {duration(entry.run.seconds)}</Text></View><IconSymbol name="chevron.right" size={18} color={muted} />
         </Pressable>
         {openRun === entry.run.id ? <View style={styles.details}>
           {entry.run.points.length ? <MapView style={styles.map} initialRegion={{ latitude: entry.run.points[0].latitude, longitude: entry.run.points[0].longitude, latitudeDelta: 0.025, longitudeDelta: 0.025 }} scrollEnabled={false} zoomEnabled={false}><Polyline coordinates={entry.run.points} strokeColor={mint} strokeWidth={4} /><Marker coordinate={entry.run.points[0]} title="Start" pinColor={mint} /></MapView> : null}
-          <View style={styles.runStats}><Mini label="Distance" value={`${(entry.run.distanceMetres / 1000).toFixed(2)} km`} /><Mini label="Time" value={duration(entry.run.seconds)} /><Mini label="Avg pace" value={pace(entry.run.seconds, entry.run.distanceMetres)} /><Mini label="Heart rate" value={entry.run.heartRate ? `${Math.round(entry.run.heartRate)} bpm` : "—"} /><Mini label="Elevation +" value={`${Math.round(entry.run.elevationGain)} m`} /><Mini label="Elevation −" value={`${Math.round(entry.run.elevationLoss)} m`} /></View>
-          <Pressable style={styles.share} onPress={() => void shareRun(entry.run)}><IconSymbol name="square.and.arrow.up" size={17} color="#111513" /><Text style={styles.shareText}>Share run</Text></Pressable><Text style={styles.private}>The shared image includes stats, not your route or location.</Text>
+          <View style={styles.runStats}><Mini label="Distance" value={`${(entry.run.distanceMetres / 1000).toFixed(2)} km`} /><Mini label="Time" value={duration(entry.run.seconds)} /><Mini label="Avg pace" value={pace(entry.run.seconds, entry.run.distanceMetres)} />{entry.run.activity === "Walk" ? <Mini label="Walk steps" value={(entry.run.steps ?? 0).toLocaleString("en-AU")} /> : <Mini label="Heart rate" value={entry.run.heartRate ? `${Math.round(entry.run.heartRate)} bpm` : "—"} />}<Mini label="Elevation +" value={`${Math.round(entry.run.elevationGain)} m`} /><Mini label="Elevation −" value={`${Math.round(entry.run.elevationLoss)} m`} /></View>
+          <Pressable style={styles.share} onPress={() => void shareRun(entry.run)}><IconSymbol name="square.and.arrow.up" size={17} color="#111513" /><Text style={styles.shareText}>Share {entry.run.activity === "Walk" ? "walk" : "run"}</Text></Pressable><Text style={styles.private}>The shared image includes stats, not your route or location.</Text>
         </View> : null}
       </View> : <View key={`workout-${entry.workout.id}`} style={styles.card}>
         <Pressable style={styles.cardTop} onPress={() => setOpenWorkout(openWorkout === entry.workout.id ? undefined : entry.workout.id)}><View style={styles.icon}><IconSymbol name="dumbbell.fill" size={21} color={mint} /></View><View style={styles.flex}><Text style={styles.cardTitle}>{entry.workout.title}</Text><Text style={styles.cardMeta}>{date(entry.workout.completedAt)} · {entry.workout.durationMinutes} min · {entry.workout.exercises.length} exercises</Text></View><IconSymbol name="chevron.right" size={18} color={muted} /></Pressable>
         {openWorkout === entry.workout.id ? <View style={styles.details}>{entry.workout.exercises.map((exercise) => <View key={exercise.name} style={styles.exercise}><View style={styles.flex}><Text style={styles.exerciseName}>{exercise.name}</Text><Text style={styles.exerciseMeta}>{exercise.focus}</Text></View><Text style={styles.sets}>{exercise.completedSets.length} sets</Text></View>)}<Pressable style={styles.share} onPress={() => void shareWorkout(entry.workout)}><IconSymbol name="square.and.arrow.up" size={17} color="#111513" /><Text style={styles.shareText}>Share workout</Text></Pressable></View> : null}
       </View>)}
     </ScrollView>
-    <View ref={shareCard} collapsable={false} pointerEvents="none" style={styles.shareCard}><Text style={styles.shareBrand}>VELTURA</Text><Text style={styles.shareTitle}>Outdoor run</Text><Text style={styles.shareDate}>{sharingRun ? date(sharingRun.completedAt) : ""}</Text><View style={styles.shareGrid}><ShareStat label="DISTANCE" value={sharingRun ? `${(sharingRun.distanceMetres / 1000).toFixed(2)} km` : "—"} /><ShareStat label="TIME" value={sharingRun ? duration(sharingRun.seconds) : "—"} /><ShareStat label="AVG PACE" value={sharingRun ? pace(sharingRun.seconds, sharingRun.distanceMetres) : "—"} /><ShareStat label="HEART RATE" value={sharingRun?.heartRate ? `${Math.round(sharingRun.heartRate)} bpm` : "—"} /></View><Text style={styles.shareFooter}>Strong body. Clear mind. Keep moving.</Text></View>
+    <View ref={shareCard} collapsable={false} pointerEvents="none" style={styles.shareCard}><Text style={styles.shareBrand}>VELTURA</Text><Text style={styles.shareTitle}>Outdoor {sharingRun?.activity === "Walk" ? "walk" : "run"}</Text><Text style={styles.shareDate}>{sharingRun ? date(sharingRun.completedAt) : ""}</Text><View style={styles.shareGrid}><ShareStat label="DISTANCE" value={sharingRun ? `${(sharingRun.distanceMetres / 1000).toFixed(2)} km` : "—"} /><ShareStat label="TIME" value={sharingRun ? duration(sharingRun.seconds) : "—"} /><ShareStat label="AVG PACE" value={sharingRun ? pace(sharingRun.seconds, sharingRun.distanceMetres) : "—"} /><ShareStat label={sharingRun?.activity === "Walk" ? "WALK STEPS" : "HEART RATE"} value={sharingRun?.activity === "Walk" ? (sharingRun.steps ?? 0).toLocaleString("en-AU") : sharingRun?.heartRate ? `${Math.round(sharingRun.heartRate)} bpm` : "—"} /></View><Text style={styles.shareFooter}>Strong body. Clear mind. Keep moving.</Text></View>
   </ScreenContainer>;
 }
 
