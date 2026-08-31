@@ -22,6 +22,7 @@ const MAPPING = {
   "stop.fill": "stop",
   "figure.walk": "directions-walk",
   "figure.run": "directions-run",
+  "bicycle": "directions-bike",
   "square.and.arrow.up": "ios-share",
   "flame.fill": "local-fire-department",
   "fork.knife": "restaurant",
