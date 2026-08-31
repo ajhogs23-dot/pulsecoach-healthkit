@@ -7,6 +7,7 @@ import {
 } from "expo-speech-recognition";
 
 import { ScreenContainer } from "@/components/screen-container";
+import { TabBackground } from "@/components/tab-background";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { trpc } from "@/lib/trpc";
 import { appDestinationFromPrompt, workoutFocusFromPrompt } from "@/lib/coach-intents";
@@ -154,6 +155,7 @@ export default function CoachScreen() {
 
   return (
     <ScreenContainer className="px-5 pt-4">
+      <TabBackground source={require("@/assets/images/tab-backgrounds/coach.png")} opacity={0.3} />
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <Text style={styles.eyebrow}>YOUR COACH</Text>
         <Text style={styles.title}>What are we working on?</Text>
@@ -240,11 +242,11 @@ const styles = StyleSheet.create({
   title: { color: "#F4F7F0", fontSize: 30, fontWeight: "800", letterSpacing: -0.7 },
   subtitle: { color: muted, fontSize: 14, lineHeight: 20 },
   chatCard: {
-    backgroundColor: "#1B231D",
+    backgroundColor: "rgba(66, 132, 174, 0.38)",
     borderRadius: 24,
     padding: 18,
     borderWidth: 1,
-    borderColor: "#2D392E",
+    borderColor: "rgba(174, 224, 255, 0.46)",
     gap: 16,
     marginTop: 8,
   },
@@ -279,26 +281,26 @@ const styles = StyleSheet.create({
   inputRow: { flexDirection: "row", gap: 8 },
   input: {
     flex: 1,
-    backgroundColor: "#111513",
+    backgroundColor: "rgba(10, 43, 67, 0.50)",
     borderRadius: 13,
     paddingHorizontal: 13,
     paddingVertical: 11,
     color: "#F4F7F0",
     fontSize: 13,
     borderWidth: 1,
-    borderColor: "#2D392E",
+    borderColor: "rgba(174, 224, 255, 0.46)",
   },
   send: { width: 44, borderRadius: 13, backgroundColor: mint, alignItems: "center", justifyContent: "center" },
   section: { color: "#F4F7F0", fontSize: 18, fontWeight: "800", marginTop: 8 },
   promptCard: {
-    backgroundColor: "#1B231D",
+    backgroundColor: "rgba(66, 132, 174, 0.38)",
     borderRadius: 16,
     padding: 16,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     borderWidth: 1,
-    borderColor: "#263128",
+    borderColor: "rgba(174, 224, 255, 0.40)",
   },
   promptText: { color: "#E5EDE0", fontSize: 14, fontWeight: "700" },
   note: { color: "#718071", fontSize: 11, lineHeight: 16, marginTop: 5 },

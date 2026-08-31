@@ -7,12 +7,14 @@ import { useAuth } from "@/hooks/use-auth";
 import { trpc } from "@/lib/trpc";
 import { loadHealthSnapshot, type HealthSyncSnapshot } from "@/lib/healthkit";
 import { calculateCalorieEstimate, DEFAULT_PROFILE_PREFERENCES, loadProfilePreferences, saveProfilePreferences, type ActivityLevel, type EstimateSex, type ProfilePreferences, type ProfileGoal } from "@/lib/profile-preferences";
+import { useThemeContext } from "@/lib/theme-provider";
 
 const mint = "#B8F36B";
 const muted = "#A8B3A6";
 const storageKey = (user: { openId?: string; id?: number } | null) => user?.openId ?? (user?.id ? String(user.id) : "local-user");
 
 export default function ProfileScreen() {
+  const { colorScheme, setColorScheme } = useThemeContext();
   const { user } = useAuth({ autoFetch: false });
   const userKey = storageKey(user);
   const [profile, setProfile] = useState<ProfilePreferences>(DEFAULT_PROFILE_PREFERENCES);
@@ -90,6 +92,12 @@ export default function ProfileScreen() {
       <Text style={styles.subtitle}>These settings stay on this device and shape VELTURA’s daily guidance.</Text>
 
       <View style={styles.group}>
+        <Text style={styles.groupTitle}>Appearance</Text>
+        <Text style={styles.appearanceCopy}>Both modes keep the cards translucent so the tab backgrounds remain visible.</Text>
+        <View style={styles.appearanceRow}>{(["light", "dark"] as const).map((scheme) => <Pressable key={scheme} onPress={() => setColorScheme(scheme)} style={[styles.appearanceChoice, colorScheme === scheme && styles.appearanceChoiceActive]}><IconSymbol name={scheme === "light" ? "sun.max.fill" : "moon.fill"} size={20} color={colorScheme === scheme ? "#111513" : "#E7F1F6"} /><Text style={[styles.appearanceText, colorScheme === scheme && styles.appearanceTextActive]}>{scheme === "light" ? "Light" : "Dark"}</Text></Pressable>)}</View>
+      </View>
+
+      <View style={styles.group}>
         <Text style={styles.groupTitle}>Your name</Text>
         <TextInput value={profile.name} onChangeText={(value) => update("name", value)} placeholder="Name" placeholderTextColor="#718071" style={styles.input} />
       </View>
@@ -163,15 +171,21 @@ const styles = StyleSheet.create({
   subtitle: { color: muted, fontSize: 14, lineHeight: 20 },
   group: { gap: 10, marginTop: 4 },
   groupTitle: { color: "#F4F7F0", fontSize: 16, fontWeight: "800" },
+  appearanceCopy: { color: muted, fontSize: 11, lineHeight: 16 },
+  appearanceRow: { flexDirection: "row", gap: 10 },
+  appearanceChoice: { flex: 1, flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 8, borderRadius: 14, padding: 13, backgroundColor: "rgba(66, 132, 174, 0.38)", borderWidth: 1, borderColor: "rgba(174, 224, 255, 0.46)" },
+  appearanceChoiceActive: { backgroundColor: mint, borderColor: mint },
+  appearanceText: { color: "#E7F1F6", fontWeight: "800" },
+  appearanceTextActive: { color: "#111513" },
   inputRow: { flexDirection: "row", gap: 8 },
-  rowInput: { flex: 1, backgroundColor: "#111513", borderRadius: 13, borderWidth: 1, borderColor: "#3B4A3B", padding: 11, color: "#F4F7F0", fontSize: 12 },
-  estimateCard: { backgroundColor: "#202A21", borderRadius: 18, padding: 16, borderWidth: 1, borderColor: "#4D653D", gap: 6 },
+  rowInput: { flex: 1, backgroundColor: "rgba(10, 43, 67, 0.50)", borderRadius: 13, borderWidth: 1, borderColor: "rgba(174, 224, 255, 0.58)", padding: 11, color: "#F4F7F0", fontSize: 12 },
+  estimateCard: { backgroundColor: "rgba(76, 143, 184, 0.40)", borderRadius: 18, padding: 16, borderWidth: 1, borderColor: "#4D653D", gap: 6 },
   estimateLabel: { color: mint, fontSize: 10, fontWeight: "900", letterSpacing: 1 },
   estimateValue: { color: "#F4F7F0", fontSize: 28, fontWeight: "900" },
   estimateCopy: { color: muted, fontSize: 11, lineHeight: 16 },
-  input: { backgroundColor: "#111513", borderRadius: 13, borderWidth: 1, borderColor: "#3B4A3B", padding: 13, color: "#F4F7F0", fontWeight: "700" },
+  input: { backgroundColor: "rgba(10, 43, 67, 0.50)", borderRadius: 13, borderWidth: 1, borderColor: "rgba(174, 224, 255, 0.58)", padding: 13, color: "#F4F7F0", fontWeight: "700" },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 9 },
-  chip: { paddingVertical: 11, paddingHorizontal: 14, borderRadius: 14, backgroundColor: "#1B231D", borderWidth: 1, borderColor: "#2D392E" },
+  chip: { paddingVertical: 11, paddingHorizontal: 14, borderRadius: 14, backgroundColor: "rgba(66, 132, 174, 0.38)", borderWidth: 1, borderColor: "rgba(174, 224, 255, 0.46)" },
   chipActive: { backgroundColor: "#2C3B25", borderColor: mint },
   chipText: { color: muted, fontSize: 13, fontWeight: "700" },
   chipTextActive: { color: mint },
@@ -181,15 +195,15 @@ const styles = StyleSheet.create({
   success: { color: mint, fontSize: 12, fontWeight: "800" },
   warning: { color: "#FFD166", fontSize: 12, fontWeight: "700" },
   settingsGroup: { gap: 10, marginTop: 4 },
-  settingsCard: { flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: "#202A21", borderRadius: 18, padding: 14, borderWidth: 1, borderColor: "#354536" },
-  settingsIcon: { width: 42, height: 42, borderRadius: 14, backgroundColor: "#2B3B27", alignItems: "center", justifyContent: "center" },
+  settingsCard: { flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: "rgba(76, 143, 184, 0.40)", borderRadius: 18, padding: 14, borderWidth: 1, borderColor: "rgba(174, 224, 255, 0.54)" },
+  settingsIcon: { width: 42, height: 42, borderRadius: 14, backgroundColor: "rgba(54, 119, 161, 0.46)", alignItems: "center", justifyContent: "center" },
   settingsBody: { flex: 1 },
   settingsTitle: { color: "#F4F7F0", fontSize: 15, fontWeight: "800" },
   settingsCopy: { color: muted, fontSize: 11, lineHeight: 16, marginTop: 3 },
-  feedback: { backgroundColor: "#202A21", borderRadius: 18, padding: 15, borderWidth: 1, borderColor: "#354536", gap: 10, marginTop: 4 },
+  feedback: { backgroundColor: "rgba(76, 143, 184, 0.40)", borderRadius: 18, padding: 15, borderWidth: 1, borderColor: "rgba(174, 224, 255, 0.54)", gap: 10, marginTop: 4 },
   feedbackTitle: { color: "#F4F7F0", fontSize: 16, fontWeight: "800" },
   feedbackCopy: { color: muted, fontSize: 11, lineHeight: 16 },
-  feedbackInput: { minHeight: 82, color: "#F4F7F0", backgroundColor: "#111513", borderRadius: 12, padding: 12, textAlignVertical: "top", borderWidth: 1, borderColor: "#2D392E" },
+  feedbackInput: { minHeight: 82, color: "#F4F7F0", backgroundColor: "rgba(10, 43, 67, 0.50)", borderRadius: 12, padding: 12, textAlignVertical: "top", borderWidth: 1, borderColor: "rgba(174, 224, 255, 0.46)" },
   feedbackButton: { backgroundColor: mint, borderRadius: 13, padding: 13, alignItems: "center" },
   feedbackButtonText: { color: "#111513", fontWeight: "800" },
   adminLink: { alignItems: "center", padding: 10 },
