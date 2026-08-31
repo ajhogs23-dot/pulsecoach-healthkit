@@ -1,22 +1,23 @@
-import { useCallback, useState } from "react";
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useCallback, useEffect, useState } from "react";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { ScreenContainer } from "@/components/screen-container";
 import { TabBackground } from "@/components/tab-background";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useAuth } from "@/hooks/use-auth";
 import { DEFAULT_PROFILE_PREFERENCES, loadProfilePreferences, type ProfilePreferences } from "@/lib/profile-preferences";
-import { exercisesFor, type ExerciseEquipment, type ExerciseLibraryItem, type MuscleGroup } from "@/lib/exercise-library";
+import { EXERCISE_LIBRARY, exercisesFor, type ExerciseEquipment, type ExerciseLibraryItem, type MuscleGroup } from "@/lib/exercise-library";
 import { loadCompletedWorkouts, loadWorkoutCheckIn, saveActiveWorkoutPlan, type CompletedWorkout, type WorkoutExercise } from "@/lib/workout-log";
-import { applyReadinessVolume, contraindicationConfirmation, contraindicationWarning, isExerciseContraindicated, type WorkoutReadiness } from "@/lib/workout-selection";
+import { applyReadinessVolume, isExerciseContraindicated, type WorkoutReadiness } from "@/lib/workout-selection";
 
 const mint = "#B8F36B";
 const muted = "#A8B3A6";
 const muscleGroups: MuscleGroup[] = ["Full body", "Chest", "Back", "Shoulders", "Arms", "Legs", "Core", "Cardio"];
 const durations = [20, 30, 45, 60];
 const storageKey = (user: { openId?: string; id?: number } | null) => user?.openId ?? (user?.id ? String(user.id) : "local-user");
-type PendingRiskyChoice = { exercise: ExerciseLibraryItem; replaceIndex?: number };
 type WorkoutType = { title: string; detail: string; mark: string; action: "builder" | "activity" | "gym" };
+type BuilderDraft = { focus: MuscleGroup; duration: number; exerciseIds: string[]; equipment: ExerciseEquipment; showBuilder: boolean };
 
 const workoutTypes: WorkoutType[] = [
   { title: "Run", detail: "Start a run and review your pace, distance, heart rate, splits, and route.", mark: "R", action: "activity" },
@@ -77,7 +78,8 @@ export default function WorkoutScreen() {
     readiness: requestedReadiness,
     limitation: requestedLimitation,
     equipment: requestedEquipment,
-  } = useLocalSearchParams<{ focus?: string; duration?: string; readiness?: string; limitation?: string; equipment?: string }>();
+    fresh,
+  } = useLocalSearchParams<{ focus?: string; duration?: string; readiness?: string; limitation?: string; equipment?: string; fresh?: string }>();
   const { user } = useAuth({ autoFetch: false });
   const userKey = storageKey(user);
   const [profile, setProfile] = useState<ProfilePreferences>(DEFAULT_PROFILE_PREFERENCES);
@@ -89,19 +91,23 @@ export default function WorkoutScreen() {
   const [limitation, setLimitation] = useState("");
   const [focusOpen, setFocusOpen] = useState(false);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
-  const [pendingRiskyChoice, setPendingRiskyChoice] = useState<PendingRiskyChoice | null>(null);
   const [showBuilder, setShowBuilder] = useState(Boolean(requestedFocus));
+  const [hydrated, setHydrated] = useState(false);
+  const draftKey = `pulsecoach.workoutBuilder.${userKey}`;
 
   useFocusEffect(useCallback(() => {
     let active = true;
-    void Promise.all([loadProfilePreferences(userKey), loadCompletedWorkouts(userKey), loadWorkoutCheckIn(userKey)]).then(([savedProfile, savedHistory, savedCheckIn]) => {
+    void Promise.all([loadProfilePreferences(userKey), loadCompletedWorkouts(userKey), loadWorkoutCheckIn(userKey), AsyncStorage.getItem(draftKey)]).then(([savedProfile, savedHistory, savedCheckIn, rawDraft]) => {
       if (!active) return;
       const focusAliases: Partial<Record<string, MuscleGroup>> = { Biceps: "Arms", Triceps: "Arms", Glutes: "Legs", Run: "Cardio", Walk: "Cardio", Cycle: "Cardio" };
-      const initialFocus = typeof requestedFocus === "string"
+      let draft: BuilderDraft | undefined;
+      try { draft = rawDraft ? JSON.parse(rawDraft) : undefined; } catch { draft = undefined; }
+      const restoreDraft = Boolean(draft && fresh !== "1");
+      const initialFocus = restoreDraft ? draft!.focus : typeof requestedFocus === "string"
         ? muscleGroups.includes(requestedFocus as MuscleGroup) ? requestedFocus as MuscleGroup : focusAliases[requestedFocus] ?? "Full body"
         : "Full body";
       const parsedDuration = Number(requestedDuration);
-      const initialDuration = Number.isFinite(parsedDuration) && parsedDuration >= 10 && parsedDuration <= 180 ? Math.round(parsedDuration) : 30;
+      const initialDuration = restoreDraft ? draft!.duration : Number.isFinite(parsedDuration) && parsedDuration >= 10 && parsedDuration <= 180 ? Math.round(parsedDuration) : 30;
       const hasRequestedCheckIn = typeof requestedReadiness === "string" || typeof requestedLimitation === "string";
       const initialReadiness: WorkoutReadiness = hasRequestedCheckIn
         ? requestedReadiness === "Low" || requestedReadiness === "Okay" ? requestedReadiness : "Ready"
@@ -110,7 +116,7 @@ export default function WorkoutScreen() {
         ? typeof requestedLimitation === "string" ? requestedLimitation : ""
         : savedCheckIn?.limitation ?? "";
       const equipmentOptions: ExerciseEquipment[] = ["Bodyweight", "Dumbbells", "Full gym"];
-      const initialEquipment = equipmentOptions.includes(requestedEquipment as ExerciseEquipment)
+      const initialEquipment = restoreDraft ? draft!.equipment : equipmentOptions.includes(requestedEquipment as ExerciseEquipment)
         ? requestedEquipment as ExerciseEquipment
         : savedProfile.trainingSetup;
       const effectiveProfile = { ...savedProfile, trainingSetup: initialEquipment };
@@ -120,10 +126,19 @@ export default function WorkoutScreen() {
       setDuration(initialDuration);
       setReadiness(initialReadiness);
       setLimitation(initialLimitation);
-      setSelected(pickExercises(initialFocus, initialDuration, effectiveProfile, savedHistory.length, initialLimitation, initialReadiness));
+      const restoredExercises = restoreDraft ? draft!.exerciseIds.map((id) => EXERCISE_LIBRARY.find((item) => item.id === id)).filter((item): item is ExerciseLibraryItem => Boolean(item)) : [];
+      setSelected(restoredExercises.length ? restoredExercises : pickExercises(initialFocus, initialDuration, effectiveProfile, savedHistory.length, initialLimitation, initialReadiness));
+      setShowBuilder(restoreDraft ? draft!.showBuilder : Boolean(requestedFocus));
+      setHydrated(true);
     });
     return () => { active = false; };
-  }, [requestedDuration, requestedEquipment, requestedFocus, requestedLimitation, requestedReadiness, userKey]));
+  }, [draftKey, fresh, requestedDuration, requestedEquipment, requestedFocus, requestedLimitation, requestedReadiness, userKey]));
+
+  useEffect(() => {
+    if (!hydrated) return;
+    const draft: BuilderDraft = { focus, duration, exerciseIds: selected.map((item) => item.id), equipment: profile.trainingSetup, showBuilder };
+    void AsyncStorage.setItem(draftKey, JSON.stringify(draft));
+  }, [draftKey, duration, focus, hydrated, profile.trainingSetup, selected, showBuilder]);
 
   const chooseFocus = (nextFocus: MuscleGroup) => {
     setFocus(nextFocus);
@@ -141,17 +156,6 @@ export default function WorkoutScreen() {
   const replaceExercise = (index: number, replacement: ExerciseLibraryItem) => {
     setSelected((current) => current.map((item, itemIndex) => itemIndex === index ? replacement : item));
     setEditingIndex(null);
-  };
-
-  const confirmRiskyChoice = () => {
-    if (!pendingRiskyChoice) return;
-    if (pendingRiskyChoice.replaceIndex === undefined) {
-      setSelected((current) => current.some((item) => item.id === pendingRiskyChoice.exercise.id) ? current : [...current, pendingRiskyChoice.exercise]);
-    } else {
-      setSelected((current) => current.map((item, itemIndex) => itemIndex === pendingRiskyChoice.replaceIndex ? pendingRiskyChoice.exercise : item));
-    }
-    setEditingIndex(null);
-    setPendingRiskyChoice(null);
   };
 
   const startSession = async () => {
@@ -203,7 +207,7 @@ export default function WorkoutScreen() {
   };
 
   if (!showBuilder) return <ScreenContainer className="px-5 pt-4">
-    <TabBackground source={require("@/assets/images/tab-backgrounds/workout.png")} opacity={0.22} />
+    <TabBackground source={require("@/assets/images/tab-backgrounds/workout.png")} opacity={0.42} />
     <ScrollView contentContainerStyle={styles.content}>
       <Text style={styles.eyebrow}>WORKOUT</Text>
       <Text style={styles.title}>How do you want to move?</Text>
@@ -222,7 +226,7 @@ export default function WorkoutScreen() {
   </ScreenContainer>;
 
   return <ScreenContainer className="px-5 pt-4">
-    <TabBackground source={require("@/assets/images/tab-backgrounds/workout.png")} opacity={0.18} />
+    <TabBackground source={require("@/assets/images/tab-backgrounds/workout.png")} opacity={0.38} />
     <ScrollView contentContainerStyle={styles.content}>
       <Pressable onPress={() => setShowBuilder(false)}><Text style={styles.back}>‹ All workout types</Text></Pressable>
       <Text style={styles.eyebrow}>WORKOUT BUILDER</Text>
@@ -243,11 +247,13 @@ export default function WorkoutScreen() {
 
       <View style={styles.sectionRow}><Text style={styles.section}>Selected exercises</Text><Text style={styles.available}>{candidates.length} choices</Text></View>
       {selected.map((exercise, index) => <View key={`${exercise.id}-${index}`}>
-        <Pressable style={styles.exercise} onPress={() => router.push(`/exercise/${exercise.id}` as any)}>
-          <View style={styles.num}><Text style={styles.numText}>{index + 1}</Text></View>
-          <View style={styles.flex}><Text style={styles.exerciseName}>{exercise.name}</Text><Text style={styles.exerciseMeta}>{toWorkoutExercise(exercise, profile, duration, selected.length, readiness).tracking === "time" ? toWorkoutExercise(exercise, profile, duration, selected.length, readiness).repTarget : `${toWorkoutExercise(exercise, profile, duration, selected.length, readiness).sets} sets · ${toWorkoutExercise(exercise, profile, duration, selected.length, readiness).repTarget} reps`}</Text><Text style={styles.exerciseFocus}>{exercise.focus}</Text></View>
-          <View style={styles.exerciseActions}><Text style={styles.guide}>Guide</Text><Pressable onPress={(event) => { event.stopPropagation(); setEditingIndex(editingIndex === index ? null : index); }}><Text style={styles.swap}>Change</Text></Pressable></View>
-        </Pressable>
+        <View style={styles.exercise}>
+          <Pressable style={styles.exerciseGuideTarget} onPress={() => { router.setParams({ fresh: "0" }); router.push(`/exercise/${exercise.id}` as any); }}>
+            <View style={styles.num}><Text style={styles.numText}>{index + 1}</Text></View>
+            <View style={styles.flex}><Text style={styles.exerciseName}>{exercise.name}</Text><Text style={styles.exerciseMeta}>{toWorkoutExercise(exercise, profile, duration, selected.length, readiness).tracking === "time" ? toWorkoutExercise(exercise, profile, duration, selected.length, readiness).repTarget : `${toWorkoutExercise(exercise, profile, duration, selected.length, readiness).sets} sets · ${toWorkoutExercise(exercise, profile, duration, selected.length, readiness).repTarget} reps`}</Text><Text style={styles.exerciseFocus}>{exercise.focus} · Tap for guide</Text></View>
+          </Pressable>
+          <Pressable style={styles.changeButton} onPress={() => setEditingIndex(editingIndex === index ? null : index)}><Text style={styles.swap}>{editingIndex === index ? "Close" : "Change"}</Text></Pressable>
+        </View>
         {editingIndex === index ? <View style={styles.choiceList}><Text style={styles.choiceTitle}>Choose another {focus.toLowerCase()} exercise</Text>{candidates.filter((candidate) => !selected.some((item, selectedIndex) => selectedIndex !== index && item.id === candidate.id)).map((candidate) => <Pressable key={candidate.id} style={styles.choiceRow} onPress={() => replaceExercise(index, candidate)}><Text style={styles.choiceText}>{candidate.name}</Text><Text style={styles.choiceMeta}>{candidate.focus}</Text></Pressable>)}</View> : null}
       </View>)}
 
@@ -269,22 +275,22 @@ const styles = StyleSheet.create({
   subtitle: { color: muted, fontSize: 14, lineHeight: 20 },
   back: { color: mint, fontSize: 13, fontWeight: "800" },
   typeGrid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", rowGap: 10 },
-  typeCard: { width: "48.5%", aspectRatio: 1, justifyContent: "space-between", backgroundColor: "rgba(27, 35, 29, 0.94)", borderRadius: 18, padding: 14, borderWidth: 1, borderColor: "#384738" },
-  typeMark: { width: 43, height: 43, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: "#2B3B27" },
+  typeCard: { width: "48.5%", aspectRatio: 1, justifyContent: "space-between", backgroundColor: "rgba(42, 84, 116, 0.70)", borderRadius: 18, padding: 14, borderWidth: 1, borderColor: "rgba(159, 218, 255, 0.65)" },
+  typeMark: { width: 43, height: 43, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(15, 42, 65, 0.66)" },
   typeMarkText: { color: mint, fontSize: 18, fontWeight: "900" },
   typeTitle: { color: "#F4F7F0", fontSize: 15, fontWeight: "900", marginBottom: 4, paddingRight: 10 },
   typeDetail: { color: muted, fontSize: 10.5, lineHeight: 14 },
   typeArrow: { position: "absolute", top: 15, right: 12 },
-  historyLink: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: "rgba(27, 35, 29, 0.95)", borderRadius: 15, padding: 14, borderWidth: 1, borderColor: "#384738" },
+  historyLink: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: "rgba(42, 84, 116, 0.72)", borderRadius: 15, padding: 14, borderWidth: 1, borderColor: "rgba(159, 218, 255, 0.62)" },
   historyLinkTitle: { color: "#F4F7F0", fontSize: 14, fontWeight: "900" },
   historyLinkCopy: { color: muted, fontSize: 10.5, marginTop: 3 },
-  checkInLink: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: "#202A21", borderRadius: 14, padding: 13, borderWidth: 1, borderColor: "#4D653D" },
+  checkInLink: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: "rgba(39, 77, 105, 0.76)", borderRadius: 14, padding: 13, borderWidth: 1, borderColor: "rgba(184, 243, 107, 0.72)" },
   checkInLinkText: { color: mint, fontSize: 12, fontWeight: "800" },
   safetyCard: { backgroundColor: "#2A251A", borderRadius: 15, padding: 14, gap: 6, borderWidth: 1, borderColor: "#7A6330" },
   safetyTitle: { color: "#F7CF77", fontSize: 10, fontWeight: "900", letterSpacing: 1 },
   safetyCopy: { color: "#E5D6B3", fontSize: 11, lineHeight: 16 },
   label: { color: muted, fontSize: 10, fontWeight: "900", letterSpacing: 1, marginTop: 4 },
-  dropdown: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: "#1B231D", borderRadius: 15, padding: 15, borderWidth: 1, borderColor: mint },
+  dropdown: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: "rgba(38, 78, 108, 0.82)", borderRadius: 15, padding: 15, borderWidth: 1, borderColor: mint },
   dropdownText: { color: "#F4F7F0", fontSize: 16, fontWeight: "900" },
   dropdownMenu: { backgroundColor: "#1B231D", borderRadius: 15, padding: 8, borderWidth: 1, borderColor: "#354536", gap: 3 },
   dropdownOption: { padding: 12, borderRadius: 10 },
@@ -292,11 +298,11 @@ const styles = StyleSheet.create({
   dropdownOptionText: { color: muted, fontSize: 13, fontWeight: "700" },
   dropdownOptionTextActive: { color: mint },
   durationRow: { flexDirection: "row", gap: 7 },
-  duration: { flex: 1, alignItems: "center", paddingVertical: 11, borderRadius: 12, backgroundColor: "#1B231D", borderWidth: 1, borderColor: "#2D392E" },
+  duration: { flex: 1, alignItems: "center", paddingVertical: 11, borderRadius: 12, backgroundColor: "rgba(38, 78, 108, 0.76)", borderWidth: 1, borderColor: "rgba(159, 218, 255, 0.50)" },
   durationActive: { backgroundColor: "#2C3B25", borderColor: mint },
   durationText: { color: muted, fontSize: 11, fontWeight: "800" },
   durationTextActive: { color: mint },
-  summary: { backgroundColor: "#202A21", borderRadius: 21, padding: 18, flexDirection: "row", justifyContent: "space-between", alignItems: "center", borderWidth: 1, borderColor: "#354536" },
+  summary: { backgroundColor: "rgba(37, 75, 104, 0.82)", borderRadius: 21, padding: 18, flexDirection: "row", justifyContent: "space-between", alignItems: "center", borderWidth: 1, borderColor: "rgba(159, 218, 255, 0.56)" },
   summaryLabel: { color: mint, fontSize: 10, fontWeight: "800", letterSpacing: 1.2 },
   summaryTitle: { color: "#F4F7F0", fontSize: 21, fontWeight: "800", marginTop: 8 },
   summaryMeta: { color: muted, fontSize: 12, marginTop: 4 },
@@ -306,16 +312,16 @@ const styles = StyleSheet.create({
   sectionRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   section: { color: "#F4F7F0", fontSize: 18, fontWeight: "800", marginTop: 4 },
   available: { color: mint, fontSize: 11, fontWeight: "800" },
-  exercise: { backgroundColor: "#1B231D", borderRadius: 18, padding: 15, flexDirection: "row", alignItems: "center", gap: 12, borderWidth: 1, borderColor: "#263128" },
+  exercise: { backgroundColor: "rgba(39, 78, 108, 0.86)", borderRadius: 18, padding: 8, flexDirection: "row", alignItems: "stretch", gap: 7, borderWidth: 1, borderColor: "rgba(159, 218, 255, 0.58)" },
+  exerciseGuideTarget: { flex: 1, flexDirection: "row", alignItems: "center", gap: 12, padding: 7, borderRadius: 13 },
   num: { width: 34, height: 34, borderRadius: 12, backgroundColor: "#2C3321", alignItems: "center", justifyContent: "center" },
   numText: { color: mint, fontWeight: "800" },
   exerciseName: { color: "#F4F7F0", fontSize: 14, fontWeight: "800" },
   exerciseMeta: { color: muted, fontSize: 11, marginTop: 4 },
   exerciseFocus: { color: mint, fontSize: 10, fontWeight: "700", marginTop: 5 },
-  exerciseActions: { alignItems: "flex-end", gap: 8 },
-  guide: { color: "#87C7E8", fontSize: 10, fontWeight: "900" },
-  swap: { color: mint, fontSize: 10, fontWeight: "900" },
-  choiceList: { backgroundColor: "#202A21", borderRadius: 15, padding: 12, gap: 6, borderWidth: 1, borderColor: "#354536", marginTop: 5 },
+  changeButton: { minWidth: 70, alignItems: "center", justifyContent: "center", paddingHorizontal: 10, borderRadius: 13, backgroundColor: "rgba(14, 42, 64, 0.86)", borderWidth: 1, borderColor: mint },
+  swap: { color: mint, fontSize: 11, fontWeight: "900" },
+  choiceList: { backgroundColor: "rgba(31, 67, 95, 0.96)", borderRadius: 15, padding: 12, gap: 6, borderWidth: 1, borderColor: "rgba(159, 218, 255, 0.62)", marginTop: 5 },
   choiceTitle: { color: mint, fontSize: 11, fontWeight: "900", marginBottom: 3 },
   choiceRow: { paddingVertical: 9, borderTopWidth: 1, borderTopColor: "#354536" },
   choiceText: { color: "#F4F7F0", fontSize: 12, fontWeight: "800" },

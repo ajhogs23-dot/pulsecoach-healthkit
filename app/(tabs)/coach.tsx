@@ -94,7 +94,7 @@ export default function CoachScreen() {
       setRecognitionMessage("");
       if (listening) ExpoSpeechRecognitionModule.stop();
       setListening(false);
-      router.push({ pathname: "/(tabs)/workout", params: { focus: workoutFocus } } as any);
+      router.push({ pathname: "/(tabs)/workout", params: { focus: workoutFocus, fresh: "1" } } as any);
       return;
     }
     setReply("Thinking through the most useful next step…");

@@ -45,7 +45,7 @@ export default function ChooseWorkoutScreen() {
     await saveWorkoutCheckIn(storageKey(user), { readiness, limitation });
     router.replace({
       pathname: "/workout",
-      params: { focus, duration: String(plan.minutes), readiness, limitation, equipment },
+      params: { focus, duration: String(plan.minutes), readiness, limitation, equipment, fresh: "1" },
     } as any);
   };
 
