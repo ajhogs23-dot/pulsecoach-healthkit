@@ -1,16 +1,21 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Keyboard, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Image } from "expo-image";
 import { ScreenContainer } from "@/components/screen-container";
 import { TabBackground } from "@/components/tab-background";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { searchSupplementProducts, type CatalogueItem } from "@/lib/food-catalogue";
+import { useAuth } from "@/hooks/use-auth";
 
 const mint = "#B8F36B";
 const muted = "#A8B3A6";
 
 export default function SupplementsScreen() {
+  const { user } = useAuth({ autoFetch: false });
+  const userKey = user?.openId ?? (user?.id ? String(user.id) : "local-user");
+  const cabinetKey = `pulsecoach.supplements.${userKey}`;
   const scrollRef = useRef<ScrollView>(null);
   const searchPosition = useRef(0);
   const [query, setQuery] = useState("");
@@ -23,6 +28,8 @@ export default function SupplementsScreen() {
   const [searchRevision, setSearchRevision] = useState(0);
   const [selectionMessage, setSelectionMessage] = useState("");
   const [selectedProduct, setSelectedProduct] = useState<CatalogueItem | null>(null);
+
+  useFocusEffect(useCallback(() => { let active = true; void AsyncStorage.getItem(cabinetKey).then((raw) => { if (!active) return; try { setItems(raw ? JSON.parse(raw) : []); } catch { setItems([]); } }); return () => { active = false; }; }, [cabinetKey]));
 
   useEffect(() => {
     const term = query.trim();
@@ -55,7 +62,7 @@ export default function SupplementsScreen() {
   }, [query, searchRevision]);
 
   const add = (nameToAdd: string) => {
-    setItems((current) => current.includes(nameToAdd) ? current : [nameToAdd, ...current]);
+    setItems((current) => { const next = current.includes(nameToAdd) ? current : [nameToAdd, ...current]; void AsyncStorage.setItem(cabinetKey, JSON.stringify(next)); return next; });
     setSelectionMessage(`${nameToAdd} added to your selected supplements.`);
     setSelectedProduct(null);
     setQuery("");
@@ -65,7 +72,7 @@ export default function SupplementsScreen() {
   };
 
   const remove = (nameToRemove: string) => {
-    setItems((current) => current.filter((item) => item !== nameToRemove));
+    setItems((current) => { const next = current.filter((item) => item !== nameToRemove); void AsyncStorage.setItem(cabinetKey, JSON.stringify(next)); return next; });
     setSelectionMessage(`${nameToRemove} removed.`);
   };
 
@@ -135,8 +142,8 @@ export default function SupplementsScreen() {
       </View> : null}
 
       <View style={styles.actions}>
-        <Pressable style={styles.action} onPress={() => router.push("/scan?mode=supplement" as any)}><IconSymbol name="barcode.viewfinder" size={17} color={mint} /><Text style={styles.actionText}>Scan barcode</Text></Pressable>
-        <Pressable style={styles.action} onPress={() => router.push("/scan?mode=supplement" as any)}><IconSymbol name="camera.fill" size={17} color={mint} /><Text style={styles.actionText}>Label photo</Text></Pressable>
+        <Pressable style={styles.action} onPress={() => router.push("/scan?mode=supplement&capture=barcode" as any)}><IconSymbol name="barcode.viewfinder" size={17} color={mint} /><Text style={styles.actionText}>Scan barcode</Text></Pressable>
+        <Pressable style={styles.action} onPress={() => router.push("/scan?mode=supplement&capture=photo" as any)}><IconSymbol name="camera.fill" size={17} color={mint} /><Text style={styles.actionText}>Label photo</Text></Pressable>
       </View>
 
       <View style={styles.notice}><Text style={styles.noticeTitle}>Duplicate-ingredient check</Text><Text style={styles.noticeCopy}>VELTURA will flag overlapping caffeine, vitamins, or minerals across selected products. Check the label and ask a pharmacist or doctor when unsure.</Text></View>

@@ -9,7 +9,7 @@ import {
 import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { trpc } from "@/lib/trpc";
-import { workoutFocusFromPrompt } from "@/lib/coach-intents";
+import { appDestinationFromPrompt, workoutFocusFromPrompt } from "@/lib/coach-intents";
 
 const mint = "#B8F36B";
 const muted = "#A8B3A6";
@@ -83,6 +83,11 @@ export default function CoachScreen() {
     const message = text.trim();
     if (!message) return;
     setPrompt(message);
+    const destination = appDestinationFromPrompt(message);
+    if (destination) {
+      const paths = { run: "/run", walk: "/walk", cycle: "/cycle", gym: "/gym", nutrition: "/nutrition", supplements: "/supplements", recipes: "/recipes", progress: "/progress", history: "/history" } as const;
+      setReply(`Opening ${destination} for you now.`); setRecognitionMessage(""); if (listening) ExpoSpeechRecognitionModule.stop(); setListening(false); router.push(paths[destination] as any); return;
+    }
     const workoutFocus = workoutFocusFromPrompt(message);
     if (workoutFocus) {
       setReply(`Great—let’s build a ${workoutFocus.toLowerCase()} workout for today.`);
@@ -134,9 +139,10 @@ export default function CoachScreen() {
         interimResults: true,
         maxAlternatives: 1,
         continuous: false,
+        requiresOnDeviceRecognition: false,
         addsPunctuation: true,
-        contextualStrings: ["VELTURA", "macros", "creatine", "HealthKit"],
-        iosTaskHint: "dictation",
+        contextualStrings: ["VELTURA", "macros", "creatine", "HealthKit", "chest workout", "gym", "treadmill", "pantry", "supplements"],
+        iosTaskHint: "search",
       });
     } catch {
       setListening(false);

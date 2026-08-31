@@ -198,7 +198,7 @@ export default function NutritionScreen() {
         </View>
       </View> : null}
 
-      <View style={styles.entryRow}><Pressable style={styles.entry} onPress={() => router.push("/scan?mode=food" as any)}><IconSymbol name="barcode.viewfinder" size={18} color={mint} /><Text style={styles.entryText}>Scan barcode</Text></Pressable><Pressable style={styles.entry} onPress={() => router.push("/scan?mode=food" as any)}><IconSymbol name="camera.fill" size={18} color={mint} /><Text style={styles.entryText}>Take a photo</Text></Pressable></View>
+      <View style={styles.entryRow}><Pressable style={styles.entry} onPress={() => router.push("/scan?mode=food&capture=barcode" as any)}><IconSymbol name="barcode.viewfinder" size={18} color={mint} /><Text style={styles.entryText}>Scan barcode</Text></Pressable><Pressable style={styles.entry} onPress={() => router.push("/scan?mode=food&capture=photo" as any)}><IconSymbol name="camera.fill" size={18} color={mint} /><Text style={styles.entryText}>Take a photo</Text></Pressable></View>
 
       <Pressable style={styles.addMeal} onPress={() => { setManualOpen((open) => !open); setManualFeedback(""); }}><Text style={styles.addMealText}>{manualOpen ? "− Close manual entry" : "+ Add a custom food"}</Text></Pressable>
       {manualOpen ? <View style={styles.manualCard}>

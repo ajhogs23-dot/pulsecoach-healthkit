@@ -27,6 +27,32 @@ export const appRouter = router({
   catalog: router({
     lookup: protectedProcedure.input(z.object({ barcode: z.string().trim().min(4).max(64).optional(), query: z.string().trim().max(160).optional() })).query(({ input }) => resolveProduct(input)),
   }),
+  scan: router({
+    analyze: publicProcedure.input(z.object({
+      imageDataUrl: z.string().startsWith("data:image/").max(8_000_000),
+      mode: z.enum(["food", "supplement", "pantry"]),
+    })).mutation(async ({ input }) => {
+      const response = await invokeLLM({
+        model: "gpt-5-mini",
+        reasoning: { effort: "low" },
+        maxTokens: 900,
+        responseFormat: { type: "json_schema", json_schema: { name: "visual_food_scan", strict: true, schema: {
+          type: "object", additionalProperties: false,
+          properties: { items: { type: "array", maxItems: 12, items: { type: "object", additionalProperties: false, properties: {
+            name: { type: "string" }, brand: { type: ["string", "null"] }, confidence: { type: "number", minimum: 0, maximum: 100 }, servingDescription: { type: ["string", "null"] },
+            calories: { type: ["number", "null"] }, protein: { type: ["number", "null"] }, carbohydrates: { type: ["number", "null"] }, fat: { type: ["number", "null"] },
+          }, required: ["name", "brand", "confidence", "servingDescription", "calories", "protein", "carbohydrates", "fat"] } }, notes: { type: "string" } }, required: ["items", "notes"]
+        } } },
+        messages: [
+          { role: "system", content: `Identify only what is visibly supported in this ${input.mode} image. For pantry mode, list each separate ingredient or packaged item. For food mode, identify meal components and estimate nutrition only when reasonable. For supplement mode, identify the product and brand from visible label text. Never invent a barcode, brand, ingredient, portion, or nutrition value. Use null for unknown nutrition. Confidence is visual-identification confidence, not nutrition accuracy. Keep notes concise and tell the user what needs confirmation.` },
+          { role: "user", content: [{ type: "text", text: "Analyse this photo for VELTURA's review-and-confirm screen." }, { type: "image_url", image_url: { url: input.imageDataUrl, detail: "high" } }] },
+        ],
+      });
+      const raw = responseText(response.choices?.[0]?.message?.content);
+      try { return JSON.parse(raw) as { items: Array<{ name: string; brand: string | null; confidence: number; servingDescription: string | null; calories: number | null; protein: number | null; carbohydrates: number | null; fat: number | null }>; notes: string }; }
+      catch { throw new Error("The image could not be interpreted. Try a clearer photo in good light."); }
+    }),
+  }),
   profile: router({
     get: protectedProcedure.query(({ ctx }) => db.getProfile(ctx.user.id)),
     save: protectedProcedure.input(z.object({ username: z.string().trim().min(3).max(40), avatarUrl: z.string().url().max(500).optional(), unitSystem: z.enum(["metric", "imperial"]).default("metric"), timezone: z.string().max(64).default("Australia/Sydney") })).mutation(({ ctx, input }) => db.upsertProfile(ctx.user.id, input)),
