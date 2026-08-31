@@ -44,9 +44,10 @@ export default function SessionScreen() {
   const progression = getExerciseProgression(workoutHistory, exercise);
 
   useEffect(() => {
-    if (!timedExercise && progression.lastWeightKg !== undefined) setWeight(String(progression.lastWeightKg));
+    if (!timedExercise && exercise.plannedWeightKg !== undefined) setWeight(String(exercise.plannedWeightKg));
+    else if (!timedExercise && progression.lastWeightKg !== undefined) setWeight(String(progression.lastWeightKg));
     else setWeight("");
-  }, [exerciseIndex, progression.lastWeightKg, timedExercise]);
+  }, [exercise.plannedWeightKg, exerciseIndex, progression.lastWeightKg, timedExercise]);
 
   const completeSet = async () => {
     const repValue = Number(reps);

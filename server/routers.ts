@@ -52,6 +52,19 @@ export const appRouter = router({
       try { return JSON.parse(raw) as { items: Array<{ name: string; brand: string | null; confidence: number; servingDescription: string | null; calories: number | null; protein: number | null; carbohydrates: number | null; fat: number | null }>; notes: string }; }
       catch { throw new Error("The image could not be interpreted. Try a clearer photo in good light."); }
     }),
+    machine: publicProcedure.input(z.object({ imageDataUrl: z.string().startsWith("data:image/").max(8_000_000) })).mutation(async ({ input }) => {
+      const response = await invokeLLM({
+        model: "gpt-5-mini", reasoning: { effort: "low" }, maxTokens: 700,
+        responseFormat: { type: "json_schema", json_schema: { name: "gym_machine_scan", strict: true, schema: { type: "object", additionalProperties: false, properties: { name: { type: "string" }, category: { type: "string" }, confidence: { type: "number", minimum: 0, maximum: 100 }, primaryMuscles: { type: "array", items: { type: "string" }, maxItems: 8 }, setup: { type: "string" }, formCues: { type: "array", items: { type: "string" }, maxItems: 6 }, suggestedTracking: { type: "array", items: { type: "string" }, maxItems: 8 }, alternatives: { type: "array", items: { type: "string" }, maxItems: 4 }, needsConfirmation: { type: "boolean" } }, required: ["name", "category", "confidence", "primaryMuscles", "setup", "formCues", "suggestedTracking", "alternatives", "needsConfirmation"] } } },
+        messages: [
+          { role: "system", content: "Identify the actual gym machine or cardio equipment visible. Recognise strength machines, cable stations, treadmills, exercise bikes, spin bikes, air bikes, rowing machines, ellipticals and stair climbers. Use visible shape, pedals, flywheel, console, handles, seat, cables, weight stack and labels. Do not default to a seated row. If uncertain, give the best broad category, lower confidence, set needsConfirmation true, and list plausible alternatives. Give safe general setup cues and appropriate metrics to track." },
+          { role: "user", content: [{ type: "text", text: "Identify this gym equipment from the full photo." }, { type: "image_url", image_url: { url: input.imageDataUrl, detail: "high" } }] },
+        ],
+      });
+      const raw = responseText(response.choices?.[0]?.message?.content);
+      try { return JSON.parse(raw) as { name: string; category: string; confidence: number; primaryMuscles: string[]; setup: string; formCues: string[]; suggestedTracking: string[]; alternatives: string[]; needsConfirmation: boolean }; }
+      catch { throw new Error("The machine could not be identified. Try a wider, brighter photo including its console and pedals or weight stack."); }
+    }),
   }),
   profile: router({
     get: protectedProcedure.query(({ ctx }) => db.getProfile(ctx.user.id)),

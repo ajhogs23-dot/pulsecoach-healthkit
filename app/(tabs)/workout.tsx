@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { ScreenContainer } from "@/components/screen-container";
 import { TabBackground } from "@/components/tab-background";
@@ -8,7 +8,7 @@ import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useAuth } from "@/hooks/use-auth";
 import { DEFAULT_PROFILE_PREFERENCES, loadProfilePreferences, type ProfilePreferences } from "@/lib/profile-preferences";
 import { EXERCISE_LIBRARY, exercisesFor, type ExerciseEquipment, type ExerciseLibraryItem, type MuscleGroup } from "@/lib/exercise-library";
-import { loadCompletedWorkouts, loadWorkoutCheckIn, saveActiveWorkoutPlan, type CompletedWorkout, type WorkoutExercise } from "@/lib/workout-log";
+import { getExerciseProgression, loadCompletedWorkouts, loadWorkoutCheckIn, saveActiveWorkoutPlan, type CompletedWorkout, type WorkoutExercise } from "@/lib/workout-log";
 import { applyReadinessVolume, isExerciseContraindicated, type WorkoutReadiness } from "@/lib/workout-selection";
 
 const mint = "#B8F36B";
@@ -17,7 +17,9 @@ const muscleGroups: MuscleGroup[] = ["Full body", "Chest", "Back", "Shoulders", 
 const durations = [20, 30, 45, 60];
 const storageKey = (user: { openId?: string; id?: number } | null) => user?.openId ?? (user?.id ? String(user.id) : "local-user");
 type WorkoutType = { title: string; detail: string; mark: string; action: "builder" | "activity" | "gym" };
-type BuilderDraft = { focus: MuscleGroup; duration: number; exerciseIds: string[]; equipment: ExerciseEquipment; showBuilder: boolean };
+type BuilderDraft = { focus: MuscleGroup; duration: number; exerciseIds: string[]; weights?: Record<string, string>; equipment: ExerciseEquipment; showBuilder: boolean };
+
+const usesAddedWeight = (exercise: ExerciseLibraryItem) => exercise.muscleGroup !== "Cardio" && !/push-up|pull-up|plank|dead bug|bird dog|bodyweight|crunch|superman|wall walk|mountain climber/i.test(exercise.name);
 
 const workoutTypes: WorkoutType[] = [
   { title: "Run", detail: "Start a run and review your pace, distance, heart rate, splits, and route.", mark: "R", action: "activity" },
@@ -93,6 +95,7 @@ export default function WorkoutScreen() {
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [showBuilder, setShowBuilder] = useState(Boolean(requestedFocus));
   const [hydrated, setHydrated] = useState(false);
+  const [weights, setWeights] = useState<Record<string, string>>({});
   const draftKey = `pulsecoach.workoutBuilder.${userKey}`;
 
   useFocusEffect(useCallback(() => {
@@ -128,6 +131,9 @@ export default function WorkoutScreen() {
       setLimitation(initialLimitation);
       const restoredExercises = restoreDraft ? draft!.exerciseIds.map((id) => EXERCISE_LIBRARY.find((item) => item.id === id)).filter((item): item is ExerciseLibraryItem => Boolean(item)) : [];
       setSelected(restoredExercises.length ? restoredExercises : pickExercises(initialFocus, initialDuration, effectiveProfile, savedHistory.length, initialLimitation, initialReadiness));
+      const initialExercises = restoredExercises.length ? restoredExercises : pickExercises(initialFocus, initialDuration, effectiveProfile, savedHistory.length, initialLimitation, initialReadiness);
+      const rememberedWeights = Object.fromEntries(initialExercises.filter(usesAddedWeight).flatMap((item) => { const saved = draft?.weights?.[item.id]; const last = getExerciseProgression(savedHistory, toWorkoutExercise(item, effectiveProfile, initialDuration, initialExercises.length, initialReadiness)).lastWeightKg; const value = saved ?? (last !== undefined ? String(last) : ""); return [[item.id, value]]; }));
+      setWeights(rememberedWeights);
       setShowBuilder(restoreDraft ? draft!.showBuilder : Boolean(requestedFocus));
       setHydrated(true);
     });
@@ -136,15 +142,17 @@ export default function WorkoutScreen() {
 
   useEffect(() => {
     if (!hydrated) return;
-    const draft: BuilderDraft = { focus, duration, exerciseIds: selected.map((item) => item.id), equipment: profile.trainingSetup, showBuilder };
+    const draft: BuilderDraft = { focus, duration, exerciseIds: selected.map((item) => item.id), weights, equipment: profile.trainingSetup, showBuilder };
     void AsyncStorage.setItem(draftKey, JSON.stringify(draft));
-  }, [draftKey, duration, focus, hydrated, profile.trainingSetup, selected, showBuilder]);
+  }, [draftKey, duration, focus, hydrated, profile.trainingSetup, selected, showBuilder, weights]);
 
   const chooseFocus = (nextFocus: MuscleGroup) => {
+    const next = pickExercises(nextFocus, duration, profile, history.length, limitation, readiness);
     setFocus(nextFocus);
     setFocusOpen(false);
     setEditingIndex(null);
-    setSelected(pickExercises(nextFocus, duration, profile, history.length, limitation, readiness));
+    setSelected(next);
+    setWeights(Object.fromEntries(next.filter(usesAddedWeight).map((item) => [item.id, getExerciseProgression(history, toWorkoutExercise(item, profile, duration, next.length, readiness)).lastWeightKg?.toString() ?? ""])));
   };
 
   const chooseDuration = (minutes: number) => {
@@ -156,10 +164,11 @@ export default function WorkoutScreen() {
   const replaceExercise = (index: number, replacement: ExerciseLibraryItem) => {
     setSelected((current) => current.map((item, itemIndex) => itemIndex === index ? replacement : item));
     setEditingIndex(null);
+    setWeights((current) => ({ ...current, [replacement.id]: getExerciseProgression(history, toWorkoutExercise(replacement, profile, duration, selected.length, readiness)).lastWeightKg?.toString() ?? "" }));
   };
 
   const startSession = async () => {
-    const exercises = selected.map((item) => toWorkoutExercise(item, profile, duration, selected.length, readiness));
+    const exercises = selected.map((item) => { const base = toWorkoutExercise(item, profile, duration, selected.length, readiness); const entered = Number(weights[item.id]); return { ...base, plannedWeightKg: Number.isFinite(entered) && entered >= 0 && weights[item.id]?.trim() ? entered : undefined }; });
     const allChoices = exercisesFor(focus, profile.trainingSetup);
     const excludedExerciseCount = allChoices.filter((exercise) =>
       isExerciseContraindicated(exercise.name, limitation, exercise.muscleGroup) && !selected.some((item) => item.id === exercise.id),
@@ -254,6 +263,7 @@ export default function WorkoutScreen() {
           </Pressable>
           <Pressable style={styles.changeButton} onPress={() => setEditingIndex(editingIndex === index ? null : index)}><Text style={styles.swap}>{editingIndex === index ? "Close" : "Change"}</Text></Pressable>
         </View>
+        {usesAddedWeight(exercise) ? <View style={styles.weightRow}><View style={styles.flex}><Text style={styles.weightLabel}>STARTING WEIGHT</Text><Text style={styles.weightHint}>{getExerciseProgression(history, toWorkoutExercise(exercise, profile, duration, selected.length, readiness)).lastWeightKg !== undefined ? `Last time: ${getExerciseProgression(history, toWorkoutExercise(exercise, profile, duration, selected.length, readiness)).lastWeightKg} kg` : "No previous weight recorded"}</Text></View><TextInput value={weights[exercise.id] ?? ""} onChangeText={(value) => setWeights((current) => ({ ...current, [exercise.id]: value }))} placeholder="kg" placeholderTextColor="#9CB4C2" keyboardType="decimal-pad" style={styles.weightInput} /></View> : null}
         {editingIndex === index ? <View style={styles.choiceList}><Text style={styles.choiceTitle}>Choose another {focus.toLowerCase()} exercise</Text>{candidates.filter((candidate) => !selected.some((item, selectedIndex) => selectedIndex !== index && item.id === candidate.id)).map((candidate) => <Pressable key={candidate.id} style={styles.choiceRow} onPress={() => replaceExercise(index, candidate)}><Text style={styles.choiceText}>{candidate.name}</Text><Text style={styles.choiceMeta}>{candidate.focus}</Text></Pressable>)}</View> : null}
       </View>)}
 
@@ -321,6 +331,10 @@ const styles = StyleSheet.create({
   exerciseFocus: { color: mint, fontSize: 10, fontWeight: "700", marginTop: 5 },
   changeButton: { minWidth: 70, alignItems: "center", justifyContent: "center", paddingHorizontal: 10, borderRadius: 13, backgroundColor: "rgba(14, 42, 64, 0.86)", borderWidth: 1, borderColor: mint },
   swap: { color: mint, fontSize: 11, fontWeight: "900" },
+  weightRow: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 5, padding: 10, paddingLeft: 14, borderRadius: 13, backgroundColor: "rgba(23, 55, 80, 0.92)", borderWidth: 1, borderColor: "rgba(159, 218, 255, 0.48)" },
+  weightLabel: { color: "#DDF3FF", fontSize: 9, fontWeight: "900", letterSpacing: 0.8 },
+  weightHint: { color: "#AFC8D6", fontSize: 10, marginTop: 3 },
+  weightInput: { width: 78, color: "#F4F7F0", textAlign: "center", fontWeight: "900", padding: 10, borderRadius: 11, backgroundColor: "rgba(8, 29, 46, 0.92)", borderWidth: 1, borderColor: mint },
   choiceList: { backgroundColor: "rgba(31, 67, 95, 0.96)", borderRadius: 15, padding: 12, gap: 6, borderWidth: 1, borderColor: "rgba(159, 218, 255, 0.62)", marginTop: 5 },
   choiceTitle: { color: mint, fontSize: 11, fontWeight: "900", marginBottom: 3 },
   choiceRow: { paddingVertical: 9, borderTopWidth: 1, borderTopColor: "#354536" },

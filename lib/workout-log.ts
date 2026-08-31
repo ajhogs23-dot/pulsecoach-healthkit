@@ -9,6 +9,7 @@ export type WorkoutExercise = {
   sets: number;
   repTarget: string;
   tracking?: "reps" | "time";
+  plannedWeightKg?: number;
 };
 
 export type ActiveWorkoutPlan = {

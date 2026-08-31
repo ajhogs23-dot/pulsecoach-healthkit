@@ -4,7 +4,7 @@ import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { TabBackground } from "@/components/tab-background";
 
-const mint = "#B8F36B"; const muted = "#A8B3A6";
+const mint = "#B8F36B";
 const cardio = [
   { title: "Treadmill", detail: "Run or walk · pace · incline", type: "Treadmill run" },
   { title: "Rowing machine", detail: "500 m split · strokes · watts", type: "Rowing machine" },

@@ -20,6 +20,7 @@ const mealNames: MealName[] = ["Breakfast", "Lunch", "Dinner", "Snacks"];
 export default function NutritionScreen() {
   const scrollRef = useRef<ScrollView>(null);
   const searchPosition = useRef(0);
+  const searchInputRef = useRef<TextInput>(null);
   const { user } = useAuth({ autoFetch: false });
   const userKey = storageKey(user);
   const [query, setQuery] = useState("");
@@ -140,6 +141,16 @@ export default function NutritionScreen() {
     setEntries(await removeFoodLog(userKey, entryId));
   };
 
+  const openMealFood = (meal: MealName) => {
+    setSelectedMeal(meal);
+    setSelectedFood(null);
+    setManualOpen(false);
+    requestAnimationFrame(() => {
+      scrollRef.current?.scrollTo({ y: Math.max(0, searchPosition.current - 8), animated: true });
+      setTimeout(() => searchInputRef.current?.focus(), 350);
+    });
+  };
+
   const saveManualFood = async () => {
     const servings = Number(manualServings);
     const calories = Number(manualCalories);
@@ -179,7 +190,7 @@ export default function NutritionScreen() {
       <Text style={styles.subtitle}>Search first, choose the meal, then add the food you actually consumed.</Text>
 
       <View style={styles.mealTabs}>{mealNames.map((meal) => <Pressable key={meal} onPress={() => setSelectedMeal(meal)} style={[styles.mealTab, selectedMeal === meal && styles.mealTabActive]}><Text style={[styles.mealTabText, selectedMeal === meal && styles.mealTabTextActive]}>{meal}</Text></Pressable>)}</View>
-      <View style={styles.search} onLayout={(event) => { searchPosition.current = event.nativeEvent.layout.y; }}><IconSymbol name="magnifyingglass" size={18} color={muted} /><TextInput value={query} onChangeText={setQuery} placeholder={`Search food for ${selectedMeal.toLowerCase()}`} placeholderTextColor="#718071" style={styles.searchInput} /></View>
+      <View style={styles.search} onLayout={(event) => { searchPosition.current = event.nativeEvent.layout.y; }}><IconSymbol name="magnifyingglass" size={18} color={muted} /><TextInput ref={searchInputRef} value={query} onChangeText={setQuery} placeholder={`Search food for ${selectedMeal.toLowerCase()}`} placeholderTextColor="#718071" style={styles.searchInput} /></View>
 
       {selectedFood ? <View style={styles.reviewCard} accessibilityLabel={`Review ${selectedFood.name} before adding to ${selectedMeal}`}>
         <Text style={styles.reviewEyebrow}>REVIEW SERVING</Text>
@@ -236,7 +247,7 @@ export default function NutritionScreen() {
       {mealNames.map((meal) => {
         const mealEntries = todayEntries.filter((entry) => entry.meal === meal);
         const mealCalories = mealEntries.reduce((total, entry) => total + entry.nutrition.calories * entry.servings, 0);
-        return <View key={meal} style={styles.meal}><View style={styles.mealTop}><Text style={styles.mealTitle}>{meal}</Text><Text style={styles.mealTotal}>{Math.round(mealCalories)} kcal</Text></View>{mealEntries.length ? mealEntries.map((entry) => <View key={entry.id} style={styles.logged}><View style={{ flex: 1 }}><Text style={styles.loggedName}>{entry.name} · {foodAmountLabel(entry.amount, entry.unit, entry.servings)}</Text><Text style={styles.foodSource}>{Math.round(entry.nutrition.protein * entry.servings)} g protein</Text></View><Pressable onPress={() => void deleteEntry(entry.id)}><Text style={styles.loggedAction}>Delete</Text></Pressable></View>) : <Text style={styles.emptyMeal}>Nothing logged yet.</Text>}<Pressable style={styles.addMeal} onPress={() => setSelectedMeal(meal)}><Text style={styles.addMealText}>+ Add food to {meal.toLowerCase()}</Text></Pressable></View>;
+        return <View key={meal} style={styles.meal}><Pressable style={styles.mealTop} onPress={() => openMealFood(meal)}><Text style={styles.mealTitle}>{meal}</Text><Text style={styles.mealTotal}>{Math.round(mealCalories)} kcal  ›</Text></Pressable>{mealEntries.length ? mealEntries.map((entry) => <View key={entry.id} style={styles.logged}><View style={{ flex: 1 }}><Text style={styles.loggedName}>{entry.name} · {foodAmountLabel(entry.amount, entry.unit, entry.servings)}</Text><Text style={styles.foodSource}>{Math.round(entry.nutrition.protein * entry.servings)} g protein</Text></View><Pressable onPress={() => void deleteEntry(entry.id)}><Text style={styles.loggedAction}>Delete</Text></Pressable></View>) : <Text style={styles.emptyMeal}>Nothing logged yet.</Text>}<Pressable style={styles.addMeal} onPress={() => openMealFood(meal)}><Text style={styles.addMealText}>+ Add food to {meal.toLowerCase()}</Text></Pressable></View>;
       })}
 
       <Pressable style={styles.recipe} onPress={() => router.push("/recipes" as any)}><IconSymbol name="fork.knife" size={18} color="#111513" /><Text style={styles.recipeText}>Build a meal from ingredients at home</Text></Pressable>
