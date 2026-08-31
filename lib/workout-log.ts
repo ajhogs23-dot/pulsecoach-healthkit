@@ -33,6 +33,9 @@ export type WorkoutSetLog = {
   reps?: number;
   minutes?: number;
   weightKg?: number;
+  rpe?: number;
+  tempo?: string;
+  notes?: string;
 };
 
 export type CompletedWorkout = {

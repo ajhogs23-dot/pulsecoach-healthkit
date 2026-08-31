@@ -16,13 +16,13 @@ const muscleGroups: MuscleGroup[] = ["Full body", "Chest", "Back", "Shoulders", 
 const durations = [20, 30, 45, 60];
 const storageKey = (user: { openId?: string; id?: number } | null) => user?.openId ?? (user?.id ? String(user.id) : "local-user");
 type PendingRiskyChoice = { exercise: ExerciseLibraryItem; replaceIndex?: number };
-type WorkoutType = { title: string; detail: string; mark: string; action: "builder" | "activity" };
+type WorkoutType = { title: string; detail: string; mark: string; action: "builder" | "activity" | "gym" };
 
 const workoutTypes: WorkoutType[] = [
   { title: "Run", detail: "Start a run and review your pace, distance, heart rate, splits, and route.", mark: "R", action: "activity" },
   { title: "Walk", detail: "Track an outdoor walk, time, distance, movement, and route.", mark: "W", action: "activity" },
   { title: "Cycle", detail: "Record a ride, duration, distance, effort, and route.", mark: "C", action: "activity" },
-  { title: "Strength workout", detail: "Build a gym, dumbbell, or bodyweight session around your goals.", mark: "S", action: "builder" },
+  { title: "Gym", detail: "Weights, machines, treadmill, rower, indoor bike and stair climber.", mark: "G", action: "gym" },
   { title: "Mobility & recovery", detail: "Choose a lighter session for movement quality and recovery.", mark: "M", action: "builder" },
   { title: "Other activity", detail: "Record another type of exercise or movement session.", mark: "+", action: "activity" },
 ];
@@ -188,6 +188,10 @@ export default function WorkoutScreen() {
     }
     if (type.title === "Cycle") {
       router.push("/cycle" as any);
+      return;
+    }
+    if (type.action === "gym") {
+      router.push("/gym" as any);
       return;
     }
     if (type.action === "builder") {

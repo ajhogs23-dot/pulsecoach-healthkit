@@ -22,6 +22,9 @@ export default function SessionScreen() {
   const [logs, setLogs] = useState<WorkoutSetLog[][]>([]);
   const [reps, setReps] = useState("");
   const [weight, setWeight] = useState("");
+  const [rpe, setRpe] = useState("");
+  const [tempo, setTempo] = useState("");
+  const [notes, setNotes] = useState("");
   const [feedback, setFeedback] = useState("");
   const [finished, setFinished] = useState(false);
 
@@ -56,13 +59,21 @@ export default function SessionScreen() {
       setFeedback("Weight must be zero or greater, or left blank.");
       return;
     }
+    const rpeValue = rpe.trim() ? Number(rpe) : undefined;
+    if (rpeValue !== undefined && (!Number.isFinite(rpeValue) || rpeValue < 1 || rpeValue > 10)) {
+      setFeedback("RPE must be between 1 and 10, or left blank.");
+      return;
+    }
 
     const nextLogs = logs.map((sets) => [...sets]);
     while (nextLogs.length < plan.exercises.length) nextLogs.push([]);
-    nextLogs[exerciseIndex] = [...nextLogs[exerciseIndex], timedExercise ? { minutes: repValue } : { reps: repValue, weightKg: weightValue }];
+    nextLogs[exerciseIndex] = [...nextLogs[exerciseIndex], timedExercise ? { minutes: repValue, rpe: rpeValue, notes: notes.trim() || undefined } : { reps: repValue, weightKg: weightValue, rpe: rpeValue, tempo: tempo.trim() || undefined, notes: notes.trim() || undefined }];
     setLogs(nextLogs);
     setReps("");
     setWeight("");
+    setRpe("");
+    setTempo("");
+    setNotes("");
     setFeedback("");
 
     const exerciseFinished = nextLogs[exerciseIndex].length >= exercise.sets;
@@ -119,8 +130,10 @@ export default function SessionScreen() {
         <View style={styles.inputGroup}><Text style={styles.inputLabel}>{timedExercise ? "Minutes completed" : "Reps"}</Text><TextInput value={reps} onChangeText={setReps} placeholder={timedExercise ? exercise.repTarget.replace(" min", "") : exercise.repTarget} placeholderTextColor="#718071" keyboardType="number-pad" style={styles.input} /></View>
         {!timedExercise ? <View style={styles.inputGroup}><Text style={styles.inputLabel}>Weight kg (optional)</Text><TextInput value={weight} onChangeText={setWeight} placeholder="0" placeholderTextColor="#718071" keyboardType="decimal-pad" style={styles.input} /></View> : null}
       </View>
+      <View style={styles.inputs}><View style={styles.inputGroup}><Text style={styles.inputLabel}>RPE 1–10 (optional)</Text><TextInput value={rpe} onChangeText={setRpe} placeholder="8" placeholderTextColor="#718071" keyboardType="decimal-pad" style={styles.input} /></View>{!timedExercise ? <View style={styles.inputGroup}><Text style={styles.inputLabel}>Tempo (optional)</Text><TextInput value={tempo} onChangeText={setTempo} placeholder="3-1-1" placeholderTextColor="#718071" style={styles.input} /></View> : null}</View>
+      <View style={styles.inputGroup}><Text style={styles.inputLabel}>Set notes (optional)</Text><TextInput value={notes} onChangeText={setNotes} placeholder="Form, pain or machine setting" placeholderTextColor="#718071" style={styles.input} /></View>
 
-      {completedForExercise.length ? <View style={styles.loggedSets}><Text style={styles.inputLabel}>COMPLETED SETS</Text>{completedForExercise.map((set, index) => <Text key={index} style={styles.setText}>{set.minutes !== undefined ? `${set.minutes} min completed` : `Set ${index + 1}: ${set.reps} reps${set.weightKg === undefined ? "" : ` · ${set.weightKg} kg`}`}</Text>)}</View> : null}
+      {completedForExercise.length ? <View style={styles.loggedSets}><Text style={styles.inputLabel}>COMPLETED SETS</Text>{completedForExercise.map((set, index) => <Text key={index} style={styles.setText}>{set.minutes !== undefined ? `${set.minutes} min completed` : `Set ${index + 1}: ${set.reps} reps${set.weightKg === undefined ? "" : ` · ${set.weightKg} kg`}${set.rpe ? ` · RPE ${set.rpe}` : ""}${set.tempo ? ` · ${set.tempo}` : ""}`}</Text>)}</View> : null}
       {feedback ? <Text style={styles.warning}>{feedback}</Text> : null}
 
       <Pressable style={({ pressed }) => [styles.primary, pressed && styles.pressed]} onPress={() => void completeSet()}><Text style={styles.primaryText}>{nextSetNumber === exercise.sets && exerciseIndex === plan.exercises.length - 1 ? "Finish workout" : nextSetNumber === exercise.sets ? "Complete exercise" : "Complete set"}</Text><IconSymbol name="chevron.right" size={20} color="#111513" /></Pressable>
