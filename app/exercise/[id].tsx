@@ -7,6 +7,9 @@ import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { EXERCISE_LIBRARY } from "@/lib/exercise-library";
 import { loadExerciseMedia, type ExerciseMedia } from "@/lib/exercise-media";
+import { useAuth } from "@/hooks/use-auth";
+import { loadExerciseFavorites, toggleExerciseFavorite } from "@/lib/exercise-favorites";
+import { loadCompletedWorkouts, type CompletedWorkout } from "@/lib/workout-log";
 
 const mint = "#B8F36B";
 const muted = "#A8B3A6";
@@ -43,11 +46,16 @@ const formGuides: Record<string, { steps: string[]; mistakes: string[] }> = {
 };
 
 export default function ExerciseDetailScreen() {
+  const { user } = useAuth({ autoFetch: false });
+  const userKey = user?.openId ?? (user?.id ? String(user.id) : "local-user");
   const params = useLocalSearchParams<{ id: string }>();
   const exerciseId = Array.isArray(params.id) ? params.id[0] : params.id;
   const exercise = useMemo(() => EXERCISE_LIBRARY.find((item) => item.id === exerciseId), [exerciseId]);
   const [media, setMedia] = useState<ExerciseMedia | undefined>();
   const [loading, setLoading] = useState(true);
+  const [tab, setTab] = useState<"About" | "History" | "Progress">("About");
+  const [favorite, setFavorite] = useState(false);
+  const [history, setHistory] = useState<CompletedWorkout[]>([]);
   const player = useVideoPlayer(media?.videoUrl ? { uri: media.videoUrl, useCaching: true } : null, (videoPlayer) => {
     videoPlayer.loop = true;
   });
@@ -67,12 +75,26 @@ export default function ExerciseDetailScreen() {
     return () => { active = false; };
   }, [exercise]);
 
+  useEffect(() => {
+    void Promise.all([loadExerciseFavorites(userKey), loadCompletedWorkouts(userKey)]).then(([favorites, workouts]) => {
+      setFavorite(Boolean(exerciseId && favorites.includes(exerciseId)));
+      setHistory(workouts);
+    });
+  }, [exerciseId, userKey]);
+
   if (!exercise) {
     return <ScreenContainer className="px-5 pt-4"><Pressable onPress={() => router.back()}><Text style={styles.back}>‹ Back</Text></Pressable><Text style={styles.title}>Exercise unavailable</Text></ScreenContainer>;
   }
 
   const guide = formGuides[exercise.muscleGroup];
   const primary = media?.primaryMuscles?.length ? media.primaryMuscles : [exercise.focus];
+  const performances = history.flatMap((workout) => {
+    const match = workout.exercises.find((item) => item.name === exercise.name);
+    return match?.completedSets.length ? [{ date: workout.completedAt, sets: match.completedSets }] : [];
+  }).reverse();
+  const weighted = performances.flatMap((performance) => performance.sets).filter((set) => set.weightKg !== undefined && set.reps !== undefined);
+  const bestWeight = weighted.length ? Math.max(...weighted.map((set) => set.weightKg ?? 0)) : undefined;
+  const bestVolume = weighted.length ? Math.max(...weighted.map((set) => (set.weightKg ?? 0) * (set.reps ?? 0))) : undefined;
 
   return <ScreenContainer className="px-5 pt-4">
     <ScrollView contentContainerStyle={styles.content}>
@@ -81,7 +103,17 @@ export default function ExerciseDetailScreen() {
       <Text style={styles.title}>{exercise.name}</Text>
       <Text style={styles.subtitle}>{exercise.focus} · {exercise.equipment.join(", ")}</Text>
 
+      <View style={styles.tabs}>{(["About", "History", "Progress"] as const).map((item) => <Pressable key={item} style={[styles.tab, tab === item && styles.tabActive]} onPress={() => setTab(item)}><Text style={[styles.tabText, tab === item && styles.tabTextActive]}>{item}</Text></Pressable>)}</View>
+
+      {tab === "History" ? <View style={styles.card}><Text style={styles.cardTitle}>Workout history</Text>{performances.length ? performances.map((performance) => <View key={performance.date} style={styles.historyRow}><Text style={styles.historyDate}>{new Date(performance.date).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })}</Text><Text style={styles.historySets}>{performance.sets.map((set) => set.minutes !== undefined ? `${set.minutes} min` : `${set.weightKg === undefined ? "Bodyweight" : `${set.weightKg} kg`} × ${set.reps}`).join("  ·  ")}</Text></View>) : <Text style={styles.description}>Complete this exercise in a workout and every set will appear here.</Text>}</View> : null}
+
+      {tab === "Progress" ? <><View style={styles.progressGrid}><View style={styles.stat}><Text style={styles.statValue}>{performances.length}</Text><Text style={styles.statLabel}>SESSIONS</Text></View><View style={styles.stat}><Text style={styles.statValue}>{bestWeight === undefined ? "—" : `${bestWeight} kg`}</Text><Text style={styles.statLabel}>BEST WEIGHT</Text></View><View style={styles.stat}><Text style={styles.statValue}>{bestVolume === undefined ? "—" : Math.round(bestVolume)}</Text><Text style={styles.statLabel}>BEST SET VOLUME</Text></View></View><Text style={styles.safety}>Progress is calculated from the sets you log in PulseCoach.</Text></> : null}
+
+      {tab === "About" ? <>
+
       {media?.videoUrl ? <VideoView player={player} style={styles.media} nativeControls allowsFullscreen /> : media?.imageUrl ? <Image source={{ uri: media.imageUrl }} style={styles.media} contentFit="contain" cachePolicy="disk" /> : <View style={styles.mediaPlaceholder}><IconSymbol name="figure.strengthtraining.traditional" size={48} color={mint} /><Text style={styles.placeholderText}>{loading ? "Loading demonstration…" : "No licensed demonstration is available yet."}</Text></View>}
+
+      <Pressable style={[styles.favorite, favorite && styles.favoriteActive]} onPress={() => void toggleExerciseFavorite(userKey, exercise.id).then((favorites) => setFavorite(favorites.includes(exercise.id)))}><IconSymbol name={favorite ? "bookmark.fill" : "bookmark"} size={19} color={favorite ? "#111513" : mint} /><Text style={[styles.favoriteText, favorite && styles.favoriteTextActive]}>{favorite ? "Saved to favourites" : "Add to favourites"}</Text></Pressable>
 
       <View style={styles.muscleCard}>
         <Text style={styles.cardEyebrow}>MUSCLES USED</Text>
@@ -102,6 +134,7 @@ export default function ExerciseDetailScreen() {
 
       <Text style={styles.safety}>Demonstrations are general guidance, not individual coaching. Use a manageable load and range. Stop for sharp pain, dizziness, chest pain, or unusual symptoms.</Text>
       {media?.attribution ? <Text style={styles.attribution}>{media.attribution}</Text> : null}
+      </> : null}
     </ScrollView>
   </ScreenContainer>;
 }
@@ -129,4 +162,20 @@ const styles = StyleSheet.create({
   mistake: { color: muted, fontSize: 12, lineHeight: 18 },
   safety: { color: "#F7CF77", fontSize: 11, lineHeight: 17 },
   attribution: { color: "#718071", fontSize: 9, lineHeight: 14 },
+  tabs: { flexDirection: "row", borderBottomWidth: 1, borderBottomColor: "#354536" },
+  tab: { flex: 1, alignItems: "center", paddingVertical: 11 },
+  tabActive: { borderBottomWidth: 3, borderBottomColor: mint },
+  tabText: { color: muted, fontSize: 12, fontWeight: "800" },
+  tabTextActive: { color: "#F4F7F0" },
+  favorite: { minHeight: 48, borderRadius: 15, borderWidth: 1, borderColor: "#4D653D", flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
+  favoriteActive: { backgroundColor: mint, borderColor: mint },
+  favoriteText: { color: mint, fontSize: 12, fontWeight: "900" },
+  favoriteTextActive: { color: "#111513" },
+  historyRow: { gap: 5, paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: "#354536" },
+  historyDate: { color: mint, fontSize: 11, fontWeight: "900" },
+  historySets: { color: "#DCE5D8", fontSize: 11, lineHeight: 17 },
+  progressGrid: { flexDirection: "row", gap: 8 },
+  stat: { flex: 1, minHeight: 95, borderRadius: 17, backgroundColor: "#1B231D", borderWidth: 1, borderColor: "#354536", alignItems: "center", justifyContent: "center", padding: 8 },
+  statValue: { color: "#F4F7F0", fontSize: 18, fontWeight: "900" },
+  statLabel: { color: mint, fontSize: 8, fontWeight: "900", marginTop: 6, textAlign: "center" },
 });

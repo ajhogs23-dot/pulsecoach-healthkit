@@ -161,6 +161,7 @@ export default function WorkoutScreen() {
       <Text style={styles.eyebrow}>WORKOUT BUILDER</Text>
       <Text style={styles.title}>What do you want to train?</Text>
       <Text style={styles.subtitle}>Choose a body area and session length, then swap any exercise before you begin.</Text>
+      <Pressable style={styles.libraryButton} onPress={() => router.push("/exercises" as any)}><View style={styles.libraryIcon}><IconSymbol name="square.grid.2x2.fill" size={22} color={mint} /></View><View style={styles.flex}><Text style={styles.libraryTitle}>Explore exercise library</Text><Text style={styles.libraryCopy}>Browse every exercise by muscle group or equipment</Text></View><IconSymbol name="chevron.right" size={18} color={mint} /></Pressable>
 
       <Text style={styles.label}>TODAY’S FOCUS</Text>
       <Pressable style={styles.dropdown} onPress={() => setFocusOpen((open) => !open)}><Text style={styles.dropdownText}>{focus}</Text><IconSymbol name="chevron.right" size={18} color={mint} /></Pressable>
@@ -255,6 +256,10 @@ const styles = StyleSheet.create({
   section: { color: "#F4F7F0", fontSize: 18, fontWeight: "800", marginTop: 4 },
   available: { color: mint, fontSize: 11, fontWeight: "800" },
   exercise: { backgroundColor: "#1B231D", borderRadius: 18, padding: 15, flexDirection: "row", alignItems: "center", gap: 12, borderWidth: 1, borderColor: "#263128" },
+  libraryButton: { backgroundColor: "#1B231D", borderRadius: 18, padding: 14, flexDirection: "row", alignItems: "center", gap: 12, borderWidth: 1, borderColor: "#4D653D" },
+  libraryIcon: { width: 44, height: 44, borderRadius: 14, backgroundColor: "#2C3321", alignItems: "center", justifyContent: "center" },
+  libraryTitle: { color: "#F4F7F0", fontSize: 14, fontWeight: "900" },
+  libraryCopy: { color: muted, fontSize: 10, marginTop: 3 },
   exerciseWarning: { borderColor: "#C9953E", backgroundColor: "#262117" },
   exerciseWarningText: { color: "#F7CF77", fontSize: 10, lineHeight: 14, fontWeight: "700", marginTop: 7 },
   num: { width: 34, height: 34, borderRadius: 12, backgroundColor: "#2C3321", alignItems: "center", justifyContent: "center" },

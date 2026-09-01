@@ -9,6 +9,18 @@ export type ExerciseLibraryItem = {
   focus: string;
 };
 
+export const MUSCLE_GROUPS: Exclude<MuscleGroup, "Full body">[] = ["Chest", "Back", "Shoulders", "Arms", "Legs", "Core", "Cardio"];
+
+export function isBodyweightExercise(exercise?: Pick<ExerciseLibraryItem, "equipment">) {
+  return Boolean(exercise?.equipment.includes("Bodyweight") && !exercise.equipment.includes("Dumbbells") && !exercise.equipment.includes("Full gym"));
+}
+
+export function exerciseUsesExternalLoad(exercise?: Pick<ExerciseLibraryItem, "name" | "equipment">) {
+  if (!exercise) return true;
+  const explicitlyBodyweight = /push-up|pull-up|dip|plank|dead bug|bird dog|mountain climber|crunch|superman|wall walk|bodyweight|glute bridge|high knees|jumping jack|burpee|skater hop|fast-feet|shadow boxing/i.test(exercise.name);
+  return !explicitlyBodyweight && exercise.equipment.some((item) => item !== "Bodyweight");
+}
+
 const item = (id: string, name: string, muscleGroup: ExerciseLibraryItem["muscleGroup"], equipment: ExerciseEquipment[], focus: string): ExerciseLibraryItem => ({ id, name, muscleGroup, equipment, focus });
 
 export const EXERCISE_LIBRARY: ExerciseLibraryItem[] = [

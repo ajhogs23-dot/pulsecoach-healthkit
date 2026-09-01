@@ -8,6 +8,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { DEFAULT_PROFILE_PREFERENCES, loadProfilePreferences, type ProfilePreferences } from "@/lib/profile-preferences";
 import { getExerciseProgression, getWorkoutPlan, loadActiveWorkoutPlan, loadCompletedWorkouts, saveCompletedWorkout, type ActiveWorkoutPlan, type CompletedWorkout, type WorkoutSetLog } from "@/lib/workout-log";
 import { completedSetCount, protectCompletedSets } from "@/lib/workout-personalisation";
+import { EXERCISE_LIBRARY, exerciseUsesExternalLoad } from "@/lib/exercise-library";
 
 const mint = "#B8F36B";
 const muted = "#A8B3A6";
@@ -40,12 +41,14 @@ export default function SessionScreen() {
   const completedForExercise = logs[exerciseIndex] ?? [];
   const nextSetNumber = completedForExercise.length + 1;
   const timedExercise = exercise.tracking === "time";
+  const libraryExercise = EXERCISE_LIBRARY.find((item) => item.name === exercise.name);
+  const tracksWeight = !timedExercise && exerciseUsesExternalLoad(libraryExercise);
   const progression = getExerciseProgression(workoutHistory, exercise);
 
   useEffect(() => {
-    if (!timedExercise && progression.lastWeightKg !== undefined) setWeight(String(progression.lastWeightKg));
+    if (tracksWeight && progression.lastWeightKg !== undefined) setWeight(String(progression.lastWeightKg));
     else setWeight("");
-  }, [exerciseIndex, progression.lastWeightKg, timedExercise]);
+  }, [exerciseIndex, progression.lastWeightKg, tracksWeight]);
 
   const completeSet = async () => {
     const repValue = Number(reps);
@@ -54,14 +57,14 @@ export default function SessionScreen() {
       setFeedback(timedExercise ? "Enter the minutes you completed." : "Enter the reps you completed.");
       return;
     }
-    if (!timedExercise && weightValue !== undefined && (!Number.isFinite(weightValue) || weightValue < 0)) {
+    if (tracksWeight && weightValue !== undefined && (!Number.isFinite(weightValue) || weightValue < 0)) {
       setFeedback("Weight must be zero or greater, or left blank.");
       return;
     }
 
     const nextLogs = logs.map((sets) => [...sets]);
     while (nextLogs.length < plan.exercises.length) nextLogs.push([]);
-    nextLogs[exerciseIndex] = [...nextLogs[exerciseIndex], timedExercise ? { minutes: repValue } : { reps: repValue, weightKg: weightValue }];
+    nextLogs[exerciseIndex] = [...nextLogs[exerciseIndex], timedExercise ? { minutes: repValue } : { reps: repValue, weightKg: tracksWeight ? weightValue : undefined }];
     setLogs(nextLogs);
     setReps("");
     setWeight("");
@@ -131,9 +134,9 @@ export default function SessionScreen() {
       </View> : null}
       <View style={styles.top}><View style={styles.flex}><Text style={styles.eyebrow}>EXERCISE {exerciseIndex + 1} OF {plan.exercises.length}</Text><Text style={styles.title}>{exercise.name}</Text><Text style={styles.meta}>{timedExercise ? exercise.repTarget : `${exercise.repTarget} reps · Set ${nextSetNumber} of ${exercise.sets}`}</Text></View><View style={styles.timer}><Text style={styles.timerText}>{completedForExercise.length}</Text><Text style={styles.timerLabel}>SETS</Text></View></View>
 
-      <View style={styles.formCard}><View style={styles.figure}><IconSymbol name="dumbbell.fill" size={42} color={mint} /></View><Text style={styles.formTitle}>Log what you completed.</Text><Text style={styles.formCopy}>{timedExercise ? "Enter the time you completed. Work at an intensity you can control and recover from safely." : "Use a controlled range that feels stable. Leave weight blank for bodyweight movements."}</Text></View>
+      <Pressable style={styles.formCard} onPress={() => libraryExercise ? router.push(`/exercise/${libraryExercise.id}` as any) : undefined}><View style={styles.figure}><IconSymbol name={tracksWeight ? "dumbbell.fill" : "figure.strengthtraining.traditional"} size={42} color={mint} /></View><Text style={styles.formTitle}>View demonstration</Text><Text style={styles.formCopy}>{timedExercise ? "Check technique, then enter the time you completed." : tracksWeight ? "Check the movement, target muscles and form cues, then log your set." : "This is a bodyweight movement—only reps are required."}</Text></Pressable>
 
-      {!timedExercise && progression.lastWeightKg !== undefined ? <View style={styles.progressionCard}>
+      {tracksWeight && progression.lastWeightKg !== undefined ? <View style={styles.progressionCard}>
         <View style={styles.progressionBody}><Text style={styles.progressionLabel}>LAST TIME</Text><Text style={styles.progressionValue}>{progression.lastWeightKg} kg{progression.lastReps ? ` · at least ${progression.lastReps} reps per set` : ""}</Text>
         {progression.readyToIncrease && progression.suggestedWeightKg ? <Text style={styles.progressionSuggestion}>Progression ready: consider {progression.suggestedWeightKg} kg</Text> : <Text style={styles.progressionCopy}>Previous weight has been filled in. Build consistency before increasing.</Text>}</View>
         {progression.suggestedWeightKg ? <Pressable style={styles.useSuggestion} onPress={() => setWeight(String(progression.suggestedWeightKg))}><Text style={styles.useSuggestionText}>Use suggestion</Text></Pressable> : null}
@@ -141,7 +144,7 @@ export default function SessionScreen() {
 
       <View style={styles.inputs}>
         <View style={styles.inputGroup}><Text style={styles.inputLabel}>{timedExercise ? "Minutes completed" : "Reps"}</Text><TextInput value={reps} onChangeText={setReps} placeholder={timedExercise ? exercise.repTarget.replace(" min", "") : exercise.repTarget} placeholderTextColor="#718071" keyboardType="number-pad" style={styles.input} /></View>
-        {!timedExercise ? <View style={styles.inputGroup}><Text style={styles.inputLabel}>Weight kg (optional)</Text><TextInput value={weight} onChangeText={setWeight} placeholder="0" placeholderTextColor="#718071" keyboardType="decimal-pad" style={styles.input} /></View> : null}
+        {tracksWeight ? <View style={styles.inputGroup}><Text style={styles.inputLabel}>Weight kg (optional)</Text><TextInput value={weight} onChangeText={setWeight} placeholder="0" placeholderTextColor="#718071" keyboardType="decimal-pad" style={styles.input} /></View> : null}
       </View>
 
       {completedForExercise.length ? <View style={styles.loggedSets}><Text style={styles.inputLabel}>COMPLETED SETS</Text>{completedForExercise.map((set, index) => <Text key={index} style={styles.setText}>{set.minutes !== undefined ? `${set.minutes} min completed` : `Set ${index + 1}: ${set.reps} reps${set.weightKg === undefined ? "" : ` · ${set.weightKg} kg`}`}</Text>)}</View> : null}

@@ -1,7 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { completedSetCount, conflictsWithLimitation, durationForReadiness, personaliseExercises, protectCompletedSets, setsForReadiness } from "../lib/workout-personalisation";
+import { EXERCISE_LIBRARY, exerciseUsesExternalLoad } from "../lib/exercise-library";
 
 describe("workout personalisation", () => {
+  it("does not ask for weight on bodyweight movements", () => {
+    const pushUp = EXERCISE_LIBRARY.find((exercise) => exercise.id === "chest-push-up");
+    const benchPress = EXERCISE_LIBRARY.find((exercise) => exercise.id === "chest-bench");
+    expect(exerciseUsesExternalLoad(pushUp)).toBe(false);
+    expect(exerciseUsesExternalLoad(benchPress)).toBe(true);
+  });
   const exercises = [
     { name: "Chest press", focus: "Chest + triceps" },
     { name: "Cable fly", focus: "Chest" },
