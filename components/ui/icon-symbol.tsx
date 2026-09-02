@@ -32,6 +32,14 @@ const MAPPING = {
   "chart.bar.fill": "bar-chart",
   "checkmark": "check",
   "heart.fill": "favorite",
+  "bookmark": "bookmark-border",
+  "bookmark.fill": "bookmark",
+  "magnifyingglass": "search",
+  "square.grid.2x2.fill": "grid-view",
+  "figure.strengthtraining.traditional": "fitness-center",
+  "figure.arms.open": "accessibility-new",
+  "figure.core.training": "sports-gymnastics",
+  "heart.circle.fill": "monitor-heart",
 } as IconMapping;
 
 /**

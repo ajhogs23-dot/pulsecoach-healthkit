@@ -10,6 +10,7 @@ import { loadExerciseMedia, type ExerciseMedia } from "@/lib/exercise-media";
 import { useAuth } from "@/hooks/use-auth";
 import { loadExerciseFavorites, toggleExerciseFavorite } from "@/lib/exercise-favorites";
 import { loadCompletedWorkouts, type CompletedWorkout } from "@/lib/workout-log";
+import { MuscleMap } from "@/components/muscle-map";
 
 const mint = "#B8F36B";
 const muted = "#A8B3A6";
@@ -119,6 +120,7 @@ export default function ExerciseDetailScreen() {
         <Text style={styles.cardEyebrow}>MUSCLES USED</Text>
         <Text style={styles.musclePrimary}>Primary: {primary.join(", ")}</Text>
         {media?.secondaryMuscles?.length ? <Text style={styles.muscleSecondary}>Secondary: {media.secondaryMuscles.join(", ")}</Text> : null}
+        <MuscleMap selected={exercise.muscleGroup} height={235} />
       </View>
 
       <View style={styles.card}>
