@@ -1,14 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
-import { Image } from "expo-image";
 import { router } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useAuth } from "@/hooks/use-auth";
 import { loadExerciseFavorites, toggleExerciseFavorite } from "@/lib/exercise-favorites";
 import { EXERCISE_LIBRARY, MUSCLE_GROUPS, type ExerciseEquipment, type MuscleGroup } from "@/lib/exercise-library";
-import { loadExerciseMedia } from "@/lib/exercise-media";
 import { MuscleMap } from "@/components/muscle-map";
+import { ExerciseVisual } from "@/components/exercise-visual";
 
 const mint = "#B8F36B";
 const muted = "#A8B3A6";
@@ -17,10 +16,8 @@ const groupIcons: Record<string, string> = { Chest: "heart.fill", Back: "figure.
 const storageKey = (user: { openId?: string; id?: number } | null) => user?.openId ?? (user?.id ? String(user.id) : "local-user");
 
 function ExerciseCard({ exercise, favorite, onFavorite }: { exercise: (typeof EXERCISE_LIBRARY)[number]; favorite: boolean; onFavorite: () => void }) {
-  const [imageUrl, setImageUrl] = useState<string>();
-  useEffect(() => { let active = true; void loadExerciseMedia(exercise.id, exercise.name).then((media) => { if (active) setImageUrl(media?.imageUrl); }); return () => { active = false; }; }, [exercise.id, exercise.name]);
   return <Pressable style={styles.card} onPress={() => router.push(`/exercise/${exercise.id}` as any)}>
-    <View style={styles.imageWrap}>{imageUrl ? <Image source={{ uri: imageUrl }} style={styles.image} contentFit="contain" cachePolicy="disk" /> : <IconSymbol name="figure.strengthtraining.traditional" size={46} color={mint} />}</View>
+    <View style={styles.imageWrap}><ExerciseVisual exercise={exercise} /></View>
     <View style={styles.cardBody}><View style={styles.cardTitleRow}><Text numberOfLines={2} style={styles.cardTitle}>{exercise.name}</Text><Pressable hitSlop={10} onPress={(event) => { event.stopPropagation(); onFavorite(); }}><IconSymbol name={favorite ? "bookmark.fill" : "bookmark"} size={18} color={favorite ? mint : muted} /></Pressable></View><Text style={styles.cardMeta}>{exercise.focus}</Text><Text style={styles.cardEquipment}>{exercise.equipment.join(" · ")}</Text></View>
   </Pressable>;
 }

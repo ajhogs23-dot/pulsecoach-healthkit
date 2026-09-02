@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { Image } from "expo-image";
 import { VideoView, useVideoPlayer } from "expo-video";
 import { router, useLocalSearchParams } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
@@ -11,6 +10,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { loadExerciseFavorites, toggleExerciseFavorite } from "@/lib/exercise-favorites";
 import { loadCompletedWorkouts, type CompletedWorkout } from "@/lib/workout-log";
 import { MuscleMap } from "@/components/muscle-map";
+import { ExerciseVisual } from "@/components/exercise-visual";
 
 const mint = "#B8F36B";
 const muted = "#A8B3A6";
@@ -112,7 +112,8 @@ export default function ExerciseDetailScreen() {
 
       {tab === "About" ? <>
 
-      {media?.videoUrl ? <VideoView player={player} style={styles.media} nativeControls allowsFullscreen /> : media?.imageUrl ? <Image source={{ uri: media.imageUrl }} style={styles.media} contentFit="contain" cachePolicy="disk" /> : <View style={styles.mediaPlaceholder}><IconSymbol name="figure.strengthtraining.traditional" size={48} color={mint} /><Text style={styles.placeholderText}>{loading ? "Loading demonstration…" : "No licensed demonstration is available yet."}</Text></View>}
+      <View style={styles.visual}><ExerciseVisual exercise={exercise} height={245} /></View>
+      {media?.videoUrl ? <><Text style={styles.cardEyebrow}>VIDEO DEMONSTRATION</Text><VideoView player={player} style={styles.media} nativeControls allowsFullscreen /></> : loading ? <Text style={styles.placeholderText}>Checking for a licensed video demonstration…</Text> : null}
 
       <Pressable style={[styles.favorite, favorite && styles.favoriteActive]} onPress={() => void toggleExerciseFavorite(userKey, exercise.id).then((favorites) => setFavorite(favorites.includes(exercise.id)))}><IconSymbol name={favorite ? "bookmark.fill" : "bookmark"} size={19} color={favorite ? "#111513" : mint} /><Text style={[styles.favoriteText, favorite && styles.favoriteTextActive]}>{favorite ? "Saved to favourites" : "Add to favourites"}</Text></Pressable>
 
@@ -148,6 +149,7 @@ const styles = StyleSheet.create({
   title: { color: "#F4F7F0", fontSize: 30, fontWeight: "900", letterSpacing: -0.7 },
   subtitle: { color: muted, fontSize: 13, lineHeight: 18 },
   media: { width: "100%", height: 240, borderRadius: 20, backgroundColor: "#111513" },
+  visual: { overflow: "hidden", borderRadius: 22, backgroundColor: "#CFE9F8" },
   mediaPlaceholder: { height: 220, borderRadius: 20, backgroundColor: "#1B231D", borderWidth: 1, borderColor: "#354536", alignItems: "center", justifyContent: "center", gap: 12, padding: 20 },
   placeholderText: { color: muted, fontSize: 12, textAlign: "center" },
   muscleCard: { backgroundColor: "#2C3321", borderRadius: 18, padding: 16, borderWidth: 1, borderColor: "#4D653D", gap: 6 },

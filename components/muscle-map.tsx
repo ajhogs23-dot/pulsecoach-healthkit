@@ -1,10 +1,10 @@
-import Svg, { Circle, Ellipse, G, Path, Rect } from "react-native-svg";
+import Svg, { Circle, Defs, Ellipse, G, LinearGradient, Path, Rect, Stop } from "react-native-svg";
 import type { MuscleGroup } from "@/lib/exercise-library";
 
 const green = "#B8F36B";
-const active = "#7CFF38";
-const body = "#334036";
-const outline = "#738077";
+const active = "url(#activeMuscle)";
+const body = "url(#bodyShade)";
+const outline = "#8DA59A";
 
 type Props = { selected?: MuscleGroup; height?: number };
 
@@ -38,8 +38,14 @@ function Figure({ x, back, selected }: { x: number; back?: boolean; selected?: M
 
 export function MuscleMap({ selected = "Full body", height = 250 }: Props) {
   return <Svg width="100%" height={height} viewBox="0 0 260 250" accessibilityLabel={`${selected} muscle map`}>
+    <Defs>
+      <LinearGradient id="panel" x1="0" y1="0" x2="1" y2="1"><Stop offset="0" stopColor="#17221B" /><Stop offset=".55" stopColor="#0B100D" /><Stop offset="1" stopColor="#233127" /></LinearGradient>
+      <LinearGradient id="bodyShade" x1="0" y1="0" x2="1" y2="1"><Stop offset="0" stopColor="#7D9186" /><Stop offset=".45" stopColor="#3A4940" /><Stop offset="1" stopColor="#18201B" /></LinearGradient>
+      <LinearGradient id="activeMuscle" x1="0" y1="0" x2="1" y2="1"><Stop offset="0" stopColor="#E4FF9C" /><Stop offset=".42" stopColor="#9EFF45" /><Stop offset="1" stopColor="#3EAF22" /></LinearGradient>
+    </Defs>
     <Path d="M8 18 H252 M8 232 H252" stroke="#263128" strokeWidth="1" />
-    <Circle cx="130" cy="125" r="116" fill="#101512" stroke="#27342A" />
+    <Circle cx="130" cy="125" r="116" fill="url(#panel)" stroke="#45604C" />
+    <Circle cx="130" cy="125" r="103" fill="none" stroke="#B8F36B" strokeOpacity=".12" strokeWidth="8" />
     <Figure x={12} selected={selected} />
     <Figure x={138} back selected={selected} />
   </Svg>;
