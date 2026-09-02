@@ -91,6 +91,12 @@ export default function HomeScreen() {
           </Pressable>
         </View>
 
+        <Pressable onPress={() => router.push("/design-demo" as any)} style={{ flexDirection: "row", alignItems: "center", gap: 12, padding: 14, borderRadius: 18, backgroundColor: "#162019", borderWidth: 1, borderColor: mint }}>
+          <View style={{ width: 42, height: 42, borderRadius: 14, backgroundColor: "#2B3B27", alignItems: "center", justifyContent: "center" }}><Text style={{ color: mint, fontSize: 22 }}>✦</Text></View>
+          <View style={{ flex: 1 }}><Text style={{ color: "#F4F7F0", fontSize: 13, fontWeight: "900" }}>Preview the new PulseCoach look</Text><Text style={{ color: muted, fontSize: 9, marginTop: 3 }}>Today · Training · Recovery · Progress · Nutrition</Text></View>
+          <IconSymbol name="chevron.right" size={20} color={mint} />
+        </Pressable>
+
         <View style={styles.heroCard}>
           <View style={styles.heroTop}>
             <View>
