@@ -1,7 +1,12 @@
+import { Image, StyleSheet, View } from "react-native";
 import Svg, { Circle, Defs, Ellipse, G, LinearGradient, Path, Rect, Stop } from "react-native-svg";
 import type { ExerciseLibraryItem } from "@/lib/exercise-library";
 
 type Props = { exercise: ExerciseLibraryItem; height?: number };
+
+const exerciseArtwork: Partial<Record<ExerciseLibraryItem["id"], number>> = {
+  "chest-bench": require("@/assets/exercises/chest/barbell-bench-press.png"),
+};
 
 function movementFor(name: string) {
   if (/squat|lunge|step-up|leg press|hack/i.test(name)) return "squat";
@@ -26,6 +31,10 @@ function Person({ x, pose, accent }: { x: number; pose: string; accent: string }
 }
 
 export function ExerciseVisual({ exercise, height = 145 }: Props) {
+  const artwork = exerciseArtwork[exercise.id];
+  if (artwork) {
+    return <View style={[styles.artworkFrame, { height }]}><Image source={artwork} resizeMode="cover" style={styles.artwork} accessibilityLabel={`${exercise.name} start and finish positions`} /></View>;
+  }
   const pose = movementFor(exercise.name);
   const accent = exercise.muscleGroup === "Cardio" ? "#FF8B69" : "#FF624D";
   return <Svg width="100%" height={height} viewBox="0 0 260 150" accessibilityLabel={`${exercise.name} movement illustration`}>
@@ -43,3 +52,8 @@ export function ExerciseVisual({ exercise, height = 145 }: Props) {
     <Rect x="15" y="124" width="230" height="12" rx="6" fill="#87B4CE" opacity=".38" />
   </Svg>;
 }
+
+const styles = StyleSheet.create({
+  artworkFrame: { width: "100%", overflow: "hidden", backgroundColor: "#CDEBFA" },
+  artwork: { width: "100%", height: "100%" },
+});
