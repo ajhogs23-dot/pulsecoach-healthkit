@@ -5,6 +5,7 @@ import { ScreenContainer } from "@/components/screen-container";
 import { TabBackground } from "@/components/tab-background";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { IconSymbol } from "@/components/ui/icon-symbol";
+import { ExerciseThumbnail } from "@/components/exercise-thumbnail";
 import { useAuth } from "@/hooks/use-auth";
 import { DEFAULT_PROFILE_PREFERENCES, loadProfilePreferences, type ProfilePreferences } from "@/lib/profile-preferences";
 import { EXERCISE_LIBRARY, exercisesFor, type ExerciseEquipment, type ExerciseLibraryItem, type MuscleGroup } from "@/lib/exercise-library";
@@ -258,7 +259,7 @@ export default function WorkoutScreen() {
       {selected.map((exercise, index) => <View key={`${exercise.id}-${index}`}>
         <View style={styles.exercise}>
           <Pressable style={styles.exerciseGuideTarget} onPress={() => { router.setParams({ fresh: "0" }); router.push(`/exercise/${exercise.id}` as any); }}>
-            <View style={styles.num}><Text style={styles.numText}>{index + 1}</Text></View>
+            <View><ExerciseThumbnail exerciseId={exercise.id} exerciseName={exercise.name} /><View style={styles.numBadge}><Text style={styles.numText}>{index + 1}</Text></View></View>
             <View style={styles.flex}><Text style={styles.exerciseName}>{exercise.name}</Text><Text style={styles.exerciseMeta}>{toWorkoutExercise(exercise, profile, duration, selected.length, readiness).tracking === "time" ? toWorkoutExercise(exercise, profile, duration, selected.length, readiness).repTarget : `${toWorkoutExercise(exercise, profile, duration, selected.length, readiness).sets} sets · ${toWorkoutExercise(exercise, profile, duration, selected.length, readiness).repTarget} reps`}</Text><Text style={styles.exerciseFocus}>{exercise.focus} · Tap for guide</Text></View>
           </Pressable>
           <Pressable style={styles.changeButton} onPress={() => setEditingIndex(editingIndex === index ? null : index)}><Text style={styles.swap}>{editingIndex === index ? "Close" : "Change"}</Text></Pressable>
@@ -324,7 +325,7 @@ const styles = StyleSheet.create({
   available: { color: mint, fontSize: 11, fontWeight: "800" },
   exercise: { backgroundColor: "rgba(66, 132, 174, 0.56)", borderRadius: 18, padding: 8, flexDirection: "row", alignItems: "stretch", gap: 7, borderWidth: 1, borderColor: "rgba(159, 218, 255, 0.58)" },
   exerciseGuideTarget: { flex: 1, flexDirection: "row", alignItems: "center", gap: 12, padding: 7, borderRadius: 13 },
-  num: { width: 34, height: 34, borderRadius: 12, backgroundColor: "#2C3321", alignItems: "center", justifyContent: "center" },
+  numBadge: { position: "absolute", left: -4, top: -4, width: 23, height: 23, borderRadius: 8, backgroundColor: "#2C3321", alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: mint },
   numText: { color: mint, fontWeight: "800" },
   exerciseName: { color: "#F4F7F0", fontSize: 14, fontWeight: "800" },
   exerciseMeta: { color: muted, fontSize: 11, marginTop: 4 },

@@ -106,6 +106,14 @@ const config: ExpoConfig = {
   plugins: [
     "expo-router",
     "expo-asset",
+    [
+      "expo-location",
+      {
+        locationWhenInUsePermission: "Allow $(PRODUCT_NAME) to use your location while recording a walk, run, or ride.",
+        locationAlwaysAndWhenInUsePermission: "Allow $(PRODUCT_NAME) to continue recording an active route when the screen is locked.",
+        isIosBackgroundLocationEnabled: true,
+      },
+    ],
     ["@kingstinct/react-native-healthkit", {
       NSHealthShareUsageDescription: "VELTURA reads the health categories you approve to show accurate movement and recovery summaries.",
       NSHealthUpdateUsageDescription: "VELTURA does not write health records to Apple Health.",
