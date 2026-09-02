@@ -5,7 +5,31 @@ import type { ExerciseLibraryItem } from "@/lib/exercise-library";
 type Props = { exercise: ExerciseLibraryItem; height?: number };
 
 const exerciseArtwork: Partial<Record<ExerciseLibraryItem["id"], number>> = {
+  "chest-push-up": require("@/assets/exercises/chest/push-up.png"),
+  "chest-wide-push-up": require("@/assets/exercises/chest/wide-push-up.png"),
+  "chest-incline-push-up": require("@/assets/exercises/chest/incline-push-up.png"),
+  "chest-decline-push-up": require("@/assets/exercises/chest/decline-push-up.png"),
+  "chest-db-floor": require("@/assets/exercises/chest/dumbbell-floor-press.png"),
+  "chest-db-bench": require("@/assets/exercises/chest/dumbbell-bench-press.png"),
+  "chest-db-incline": require("@/assets/exercises/chest/incline-dumbbell-press.png"),
+  "chest-db-fly": require("@/assets/exercises/chest/dumbbell-fly.png"),
   "chest-bench": require("@/assets/exercises/chest/barbell-bench-press.png"),
+  "chest-incline-bench": require("@/assets/exercises/chest/incline-barbell-bench-press.png"),
+  "chest-machine": require("@/assets/exercises/chest/machine-chest-press.png"),
+  "chest-cable-fly": require("@/assets/exercises/chest/cable-fly.png"),
+  "chest-pec-deck": require("@/assets/exercises/chest/pec-deck.png"),
+  "back-superman": require("@/assets/exercises/back/superman-hold.png"),
+  "back-prone-y": require("@/assets/exercises/back/prone-y-raise.png"),
+  "back-db-row": require("@/assets/exercises/back/single-arm-dumbbell-row.png"),
+  "back-db-pullover": require("@/assets/exercises/back/dumbbell-pullover.png"),
+  "back-renegade": require("@/assets/exercises/back/renegade-row.png"),
+  "back-pulldown": require("@/assets/exercises/back/lat-pulldown.png"),
+  "back-seated-row": require("@/assets/exercises/back/seated-cable-row.png"),
+  "back-assisted-pullup": require("@/assets/exercises/back/assisted-pull-up.png"),
+  "back-pullup": require("@/assets/exercises/back/pull-up.png"),
+  "back-tbar": require("@/assets/exercises/back/t-bar-row.png"),
+  "back-barbell-row": require("@/assets/exercises/back/barbell-bent-over-row.png"),
+  "back-machine-row": require("@/assets/exercises/back/machine-row.png"),
 };
 
 function movementFor(name: string) {
