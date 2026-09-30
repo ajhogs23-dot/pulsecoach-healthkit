@@ -8,7 +8,7 @@ export const MANAGED_PUBLIC_DEFAULTS = {
   appId: "CkXq3pRLPFCvmuDvGFNRXZ",
   ownerId: "HWKtAfSvxLG3ZCdMNvQvbL",
   ownerName: "Andrew Hoggan",
-  apiBaseUrl: "https://pulsecoach-ckxq3prl.manus.space",
+  apiBaseUrl: "https://pulsecoach-healthkit-production.up.railway.app",
 } as const;
 
 export function buildOAuthLoginUrl(input: {
