@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { router, useFocusEffect } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
@@ -6,7 +6,7 @@ import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useAuth } from "@/hooks/use-auth";
 import { trpc } from "@/lib/trpc";
 import { loadHealthSnapshot, type HealthSyncSnapshot } from "@/lib/healthkit";
-import { calculateCalorieEstimate, DEFAULT_PROFILE_PREFERENCES, loadProfilePreferences, saveProfilePreferences, type ActivityLevel, type EstimateSex, type ProfilePreferences, type ProfileGoal } from "@/lib/profile-preferences";
+import { DEFAULT_PROFILE_PREFERENCES, loadProfilePreferences, type ProfilePreferences } from "@/lib/profile-preferences";
 import { useThemeContext } from "@/lib/theme-provider";
 
 const mint = "#B8F36B";
@@ -15,17 +15,13 @@ const storageKey = (user: { openId?: string; id?: number } | null) => user?.open
 
 export default function ProfileScreen() {
   const { colorScheme, setColorScheme } = useThemeContext();
-  const { user } = useAuth({ autoFetch: false });
+  const { user } = useAuth();
   const userKey = storageKey(user);
   const [profile, setProfile] = useState<ProfilePreferences>(DEFAULT_PROFILE_PREFERENCES);
   const [health, setHealth] = useState<HealthSyncSnapshot | null>(null);
-  const [age, setAge] = useState("");
-  const [heightCm, setHeightCm] = useState("");
-  const [weightKg, setWeightKg] = useState("");
-  const [calorieTarget, setCalorieTarget] = useState("");
-  const [savedMessage, setSavedMessage] = useState("");
   const [feedback, setFeedback] = useState("");
   const [sent, setSent] = useState(false);
+  const personalDetailsOpening = useRef(false);
   const feedbackMutation = trpc.feedback.create.useMutation({
     onSuccess: () => {
       setSent(true);
@@ -35,61 +31,23 @@ export default function ProfileScreen() {
 
   useFocusEffect(useCallback(() => {
     let active = true;
+    setProfile(DEFAULT_PROFILE_PREFERENCES);
     void Promise.all([loadProfilePreferences(userKey), loadHealthSnapshot(userKey)]).then(([saved, healthSnapshot]) => {
       if (!active) return;
       setProfile(saved);
       setHealth(healthSnapshot);
-      setAge(saved.age ? String(saved.age) : "");
-      setHeightCm(saved.heightCm ? String(saved.heightCm) : "");
-      setWeightKg(saved.weightKg ? String(saved.weightKg) : "");
-      setCalorieTarget(saved.calorieTarget ? String(saved.calorieTarget) : "");
     }).catch(() => {
       if (active) setHealth(null);
     });
-    return () => { active = false; };
+    return () => { active = false; personalDetailsOpening.current = false; };
   }, [userKey]));
-
-  const update = <K extends keyof ProfilePreferences>(key: K, value: ProfilePreferences[K]) => {
-    setProfile((current) => ({ ...current, [key]: value }));
-    setSavedMessage("");
-  };
-
-  const previewProfile: ProfilePreferences = {
-    ...profile,
-    age: age.trim() ? Number(age) : undefined,
-    heightCm: heightCm.trim() ? Number(heightCm) : undefined,
-    weightKg: weightKg.trim() ? Number(weightKg) : undefined,
-  };
-  const estimate = calculateCalorieEstimate(previewProfile);
-
-  const save = async () => {
-    const parsedTarget = calorieTarget.trim() ? Number(calorieTarget) : undefined;
-    if (!profile.name.trim()) {
-      setSavedMessage("Add your name before saving.");
-      return;
-    }
-    const bodyValues = [previewProfile.age, previewProfile.heightCm, previewProfile.weightKg];
-    const hasAnyEstimateField = Boolean(profile.sexForEstimate || bodyValues.some((value) => value !== undefined));
-    if (hasAnyEstimateField && (!profile.sexForEstimate || bodyValues.some((value) => value === undefined || !Number.isFinite(value) || value! <= 0))) {
-      setSavedMessage("Complete sex, age, height, and weight with valid numbers for the estimate.");
-      return;
-    }
-    if (parsedTarget !== undefined && (!Number.isFinite(parsedTarget) || parsedTarget <= 0)) {
-      setSavedMessage("The calorie target must be greater than zero or left blank.");
-      return;
-    }
-    const next = { ...previewProfile, name: profile.name.trim(), calorieTarget: parsedTarget };
-    await saveProfilePreferences(userKey, next);
-    setProfile(next);
-    setSavedMessage("Profile saved.");
-  };
 
   return <ScreenContainer className="px-5 pt-4">
     <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
       <Text onPress={() => router.back()} style={styles.back}>‹ Back</Text>
       <Text style={styles.eyebrow}>YOUR PROFILE</Text>
       <Text style={styles.title}>Make coaching fit you.</Text>
-      <Text style={styles.subtitle}>These settings stay on this device and shape VELTURA’s daily guidance.</Text>
+      <Text style={styles.subtitle}>Manage your personal details, appearance and connected health data.</Text>
 
       <View style={styles.group}>
         <Text style={styles.groupTitle}>Appearance</Text>
@@ -97,41 +55,23 @@ export default function ProfileScreen() {
         <View style={styles.appearanceRow}>{(["light", "dark"] as const).map((scheme) => <Pressable key={scheme} onPress={() => setColorScheme(scheme)} style={[styles.appearanceChoice, colorScheme === scheme && styles.appearanceChoiceActive]}><IconSymbol name={scheme === "light" ? "sun.max.fill" : "moon.fill"} size={20} color={colorScheme === scheme ? "#111513" : "#E7F1F6"} /><Text style={[styles.appearanceText, colorScheme === scheme && styles.appearanceTextActive]}>{scheme === "light" ? "Light" : "Dark"}</Text></Pressable>)}</View>
       </View>
 
-      <View style={styles.group}>
-        <Text style={styles.groupTitle}>Your name</Text>
-        <TextInput value={profile.name} onChangeText={(value) => update("name", value)} placeholder="Name" placeholderTextColor="#718071" style={styles.input} />
-      </View>
+      <Pressable accessibilityRole="button" accessibilityLabel="Personal Details" style={styles.settingsCard} onPress={() => {
+        // The explicit group segment keeps this transition inside the Profile stack.
+        // The lock is released when the screen loses focus, so returning works repeatedly.
+        if (personalDetailsOpening.current) return;
+        personalDetailsOpening.current = true;
+        try { router.push("/(profile)/personal-details"); } catch {
+          personalDetailsOpening.current = false;
+        }
+      }}>
+        <View style={styles.settingsBody}><Text style={styles.settingsTitle}>Personal Details</Text><Text style={styles.settingsCopy}>{user ? [profile.name || user.name, profile.goal, "Body, preferences and calorie targets"].filter(Boolean).join(" | ") : "Sign in to manage your details"}</Text></View>
+        <IconSymbol name="chevron.right" size={19} color={muted} />
+      </Pressable>
 
-      <ChoiceGroup title="Sex used for calorie estimate" items={["Male", "Female"]} selected={profile.sexForEstimate ?? ""} onSelect={(value) => update("sexForEstimate", value as EstimateSex)} />
-      <View style={styles.group}>
-        <Text style={styles.groupTitle}>Body details</Text>
-        <View style={styles.inputRow}>
-          <TextInput value={age} onChangeText={(value) => { setAge(value); setSavedMessage(""); }} placeholder="Age" placeholderTextColor="#718071" keyboardType="number-pad" style={styles.rowInput} />
-          <TextInput value={heightCm} onChangeText={(value) => { setHeightCm(value); setSavedMessage(""); }} placeholder="Height cm" placeholderTextColor="#718071" keyboardType="decimal-pad" style={styles.rowInput} />
-          <TextInput value={weightKg} onChangeText={(value) => { setWeightKg(value); setSavedMessage(""); }} placeholder="Weight kg" placeholderTextColor="#718071" keyboardType="decimal-pad" style={styles.rowInput} />
-        </View>
-      </View>
-
-      <ChoiceGroup title="Primary goal" items={["Lose fat", "Build strength", "Improve fitness", "Maintain health"]} selected={profile.goal} onSelect={(value) => update("goal", value as ProfileGoal)} />
-      <ChoiceGroup title="Activity level" items={["Sedentary", "Lightly active", "Moderately active", "Very active"]} selected={profile.activityLevel} onSelect={(value) => update("activityLevel", value as ActivityLevel)} />
-      <ChoiceGroup title="Food preferences" items={["No preference", "Vegetarian", "High-protein"]} selected={profile.foodPreference} onSelect={(value) => update("foodPreference", value as ProfilePreferences["foodPreference"])} />
-      <ChoiceGroup title="Training setup" items={["Dumbbells", "Full gym", "Bodyweight"]} selected={profile.trainingSetup} onSelect={(value) => update("trainingSetup", value as ProfilePreferences["trainingSetup"])} />
-      <ChoiceGroup title="Coaching style" items={["Encouraging", "Direct", "Minimal"]} selected={profile.coachingStyle} onSelect={(value) => update("coachingStyle", value as ProfilePreferences["coachingStyle"])} />
-
-      <View style={styles.group}>
-        <Text style={styles.groupTitle}>Daily calorie target (optional)</Text>
-        <TextInput value={calorieTarget} onChangeText={(value) => { setCalorieTarget(value); setSavedMessage(""); }} placeholder="e.g. 2400" placeholderTextColor="#718071" keyboardType="number-pad" style={styles.input} />
-        <Text style={styles.note}>Leave blank to use the calculated recommendation, or enter a professional/manual target to override it.</Text>
-      </View>
-      {estimate ? <View style={styles.estimateCard}>
-        <Text style={styles.estimateLabel}>ESTIMATED DAILY INTAKE</Text>
-        <Text style={styles.estimateValue}>{estimate.recommendedCalories.toLocaleString("en-AU")} kcal</Text>
-        <Text style={styles.estimateCopy}>Maintenance estimate: {estimate.maintenanceCalories.toLocaleString("en-AU")} kcal · Resting estimate: {estimate.restingCalories.toLocaleString("en-AU")} kcal</Text>
-        <Text style={styles.note}>This is a starting estimate, not a medical prescription. Actual needs vary and should be adjusted using progress, energy, training, and professional advice.</Text>
-      </View> : <Text style={styles.note}>Complete sex, age, height, and weight to calculate an estimate.</Text>}
-
-      <Pressable style={({ pressed }) => [styles.saveButton, pressed && styles.pressed]} onPress={() => void save()}><Text style={styles.saveText}>Save profile</Text></Pressable>
-      {savedMessage ? <Text style={savedMessage === "Profile saved." ? styles.success : styles.warning}>{savedMessage}</Text> : null}
+      <Pressable accessibilityRole="button" accessibilityLabel="Settings" style={styles.settingsCard} onPress={() => router.push("/settings" as any)}>
+        <View style={styles.settingsBody}><Text style={styles.settingsTitle}>Settings</Text><Text style={styles.settingsCopy}>Profile, goals, workouts, privacy and app preferences</Text></View>
+        <IconSymbol name="chevron.right" size={19} color={muted} />
+      </Pressable>
 
       <View style={styles.settingsGroup}>
         <Text style={styles.groupTitle}>Settings</Text>
@@ -154,13 +94,6 @@ export default function ProfileScreen() {
       <Pressable style={styles.adminLink} onPress={() => router.push("/admin" as any)}><Text style={styles.adminText}>Owner administration ›</Text></Pressable>
     </ScrollView>
   </ScreenContainer>;
-}
-
-function ChoiceGroup({ title, items, selected, onSelect }: { title: string; items: string[]; selected: string; onSelect: (value: string) => void }) {
-  return <View style={styles.group}><Text style={styles.groupTitle}>{title}</Text><View style={styles.chips}>{items.map((item) => {
-    const active = item === selected;
-    return <Pressable key={item} onPress={() => onSelect(item)} style={({ pressed }) => [styles.chip, active && styles.chipActive, pressed && styles.pressed]}><Text style={[styles.chipText, active && styles.chipTextActive]}>{item}</Text></Pressable>;
-  })}</View></View>;
 }
 
 const styles = StyleSheet.create({

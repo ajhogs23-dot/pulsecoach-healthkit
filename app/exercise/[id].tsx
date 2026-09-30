@@ -8,6 +8,7 @@ import { IconSymbol } from "@/components/ui/icon-symbol";
 import { EXERCISE_LIBRARY } from "@/lib/exercise-library";
 import { loadExerciseMedia, type ExerciseMedia } from "@/lib/exercise-media";
 import { EXERCISE_IMAGE_ASSETS } from "@/lib/exercise-image-assets";
+import { isCacheableVideoUrl, isValidVideoUrl, videoRecordFor } from "@/lib/exercise-video-registry";
 
 const mint = "#B8F36B";
 const muted = "#A8B3A6";
@@ -49,10 +50,23 @@ export default function ExerciseDetailScreen() {
   const exercise = useMemo(() => EXERCISE_LIBRARY.find((item) => item.id === exerciseId), [exerciseId]);
   const [media, setMedia] = useState<ExerciseMedia | undefined>();
   const [loading, setLoading] = useState(true);
-  const [refreshKey, setRefreshKey] = useState(0);
-  const player = useVideoPlayer(media?.videoUrl ? { uri: media.videoUrl, useCaching: true } : null, (videoPlayer) => {
+  const videoRecord = exercise ? videoRecordFor(exercise.id) : undefined;
+  const requestedVideoUrl = media?.videoUrl ?? videoRecord?.videoUrl;
+  const videoUrl = isValidVideoUrl(requestedVideoUrl) ? requestedVideoUrl : undefined;
+  const [videoFailed, setVideoFailed] = useState(false);
+  const player = useVideoPlayer(videoUrl ? { uri: videoUrl, useCaching: isCacheableVideoUrl(videoUrl) } : null, (videoPlayer) => {
     videoPlayer.loop = true;
+    videoPlayer.muted = true;
   });
+
+  useEffect(() => {
+    setVideoFailed(false);
+    if (!videoUrl) return;
+    const subscription = player.addListener("statusChange", ({ status }) => {
+      if (status === "error") setVideoFailed(true);
+    });
+    return () => subscription.remove();
+  }, [player, videoUrl]);
 
   useEffect(() => {
     if (!exercise) {
@@ -61,14 +75,14 @@ export default function ExerciseDetailScreen() {
     }
     let active = true;
     setLoading(true);
-    void loadExerciseMedia(exercise.id, exercise.name, { forceRefresh: refreshKey > 0 }).then((result) => {
+    void loadExerciseMedia(exercise.id, exercise.name).then((result) => {
       if (active) {
         setMedia(result);
         setLoading(false);
       }
     });
     return () => { active = false; };
-  }, [exercise, refreshKey]);
+  }, [exercise]);
 
   if (!exercise) {
     return <ScreenContainer className="px-5 pt-4"><Pressable onPress={() => router.back()}><Text style={styles.back}>‹ Back</Text></Pressable><Text style={styles.title}>Exercise unavailable</Text></ScreenContainer>;
@@ -85,7 +99,8 @@ export default function ExerciseDetailScreen() {
       <Text style={styles.title}>{exercise.name}</Text>
       <Text style={styles.subtitle}>{exercise.focus} · {exercise.equipment.join(", ")}</Text>
 
-      {approvedImage ? <Image source={approvedImage} style={styles.media} contentFit="contain" cachePolicy="memory-disk" /> : media?.videoUrl ? <VideoView player={player} style={styles.media} nativeControls allowsFullscreen /> : media?.imageUrl ? <Image source={{ uri: media.imageUrl }} style={styles.media} contentFit="contain" cachePolicy="disk" /> : <View style={styles.mediaPlaceholder}><IconSymbol name="figure.strengthtraining.traditional" size={48} color={mint} /><Text style={styles.placeholderText}>{loading ? "Loading demonstration…" : "We couldn’t load a licensed demonstration for this exercise."}</Text>{!loading ? <Pressable style={styles.retry} onPress={() => setRefreshKey((value) => value + 1)}><Text style={styles.retryText}>Retry media</Text></Pressable> : null}</View>}
+      {videoUrl && !videoFailed ? <VideoView player={player} style={styles.media} contentFit="contain" nativeControls allowsFullscreen /> : approvedImage ? <Image source={approvedImage} style={styles.media} contentFit="contain" cachePolicy="memory-disk" /> : media?.imageUrl ? <Image source={{ uri: media.imageUrl }} style={styles.media} contentFit="contain" cachePolicy="disk" /> : <View style={styles.mediaPlaceholder}><IconSymbol name="figure.strengthtraining.traditional" size={48} color={mint} /><Text style={styles.placeholderText}>{loading ? "Loading demonstration…" : "This demonstration is unavailable right now. The exercise image remains available when you are offline."}</Text></View>}
+      {!loading && (!videoUrl || videoFailed) ? <Text style={styles.unavailable}>Video unavailable — showing the approved image instead.</Text> : null}
 
       <View style={styles.muscleCard}>
         <Text style={styles.cardEyebrow}>MUSCLES USED</Text>
@@ -119,8 +134,7 @@ const styles = StyleSheet.create({
   media: { width: "100%", height: 240, borderRadius: 20, backgroundColor: "rgba(10, 43, 67, 0.50)" },
   mediaPlaceholder: { height: 220, borderRadius: 20, backgroundColor: "rgba(66, 132, 174, 0.38)", borderWidth: 1, borderColor: "rgba(174, 224, 255, 0.54)", alignItems: "center", justifyContent: "center", gap: 12, padding: 20 },
   placeholderText: { color: muted, fontSize: 12, textAlign: "center" },
-  retry: { marginTop: 3, paddingHorizontal: 15, paddingVertical: 9, borderRadius: 10, backgroundColor: "#2C3321", borderWidth: 1, borderColor: mint },
-  retryText: { color: mint, fontSize: 11, fontWeight: "900" },
+  unavailable: { color: muted, fontSize: 11, lineHeight: 16 },
   muscleCard: { backgroundColor: "#2C3321", borderRadius: 18, padding: 16, borderWidth: 1, borderColor: "#4D653D", gap: 6 },
   cardEyebrow: { color: mint, fontSize: 10, fontWeight: "900", letterSpacing: 1 },
   musclePrimary: { color: "#F4F7F0", fontSize: 15, fontWeight: "800" },

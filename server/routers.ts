@@ -1,3 +1,4 @@
+import { personalDetailsSchema, legacyPersonalDetailsSchema, validatePersonalDetails, profileCoachContext } from "../shared/personal-details";
 import { z } from "zod";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
@@ -5,6 +6,7 @@ import { adminProcedure, protectedProcedure, publicProcedure, router } from "./_
 import * as db from "./db";
 import { resolveProduct } from "./catalog";
 import { invokeLLM } from "./_core/llm";
+import { GooglePlacesGymSearchProvider } from "./gym-search";
 
 const coachSystemPrompt = `You are VELTURA, a warm and practical wellness coach. Give concise, actionable general wellness guidance about food, exercise, movement, hydration, recovery, and habits. Never diagnose, prescribe, promise results, or give unsafe medical advice. Do not encourage extreme calorie restriction, eating-disorder behaviors, dangerous exercise, or training through pain. Ask a brief clarifying question when allergies, injuries, pregnancy, medication, or a medical condition could change the answer. Use the user's goals, preferences, equipment, time, and available health context, but never invent missing measurements or health data. Offer substitutions and explain the reasoning in plain language.`;
 
@@ -66,12 +68,36 @@ export const appRouter = router({
       catch { throw new Error("The machine could not be identified. Try a wider, brighter photo including its console and pedals or weight stack."); }
     }),
   }),
+  gym: router({
+    search: protectedProcedure.input(z.object({ query: z.string().trim().min(2).max(160), latitude: z.number().optional(), longitude: z.number().optional(), pageToken: z.string().max(512).optional() })).query(async ({ input }) => new GooglePlacesGymSearchProvider().search(input.query, input)),
+  }),
   profile: router({
+    personalDetails: protectedProcedure.query(async ({ ctx }) => { const { details, migrated } = await db.getPersonalDetails(ctx.user.id, ctx.user.name); return { details, migrated }; }),
+    savePersonalDetails: protectedProcedure.input(personalDetailsSchema).mutation(({ ctx, input }) => {
+      const errors = validatePersonalDetails(input as unknown as import("../shared/personal-details").ProfilePreferences);
+      if (Object.keys(errors).length) throw new Error(Object.values(errors).join(" "));
+      return db.savePersonalDetails(ctx.user.id, ctx.user.name, input as unknown as import("../shared/personal-details").ProfilePreferences);
+    }),
+    importPersonalDetails: protectedProcedure.input(legacyPersonalDetailsSchema).mutation(async ({ ctx, input }) => {
+      const current = await db.getPersonalDetails(ctx.user.id, ctx.user.name);
+      return db.savePersonalDetails(ctx.user.id, ctx.user.name, { ...current.details, ...input } as import("../shared/personal-details").ProfilePreferences, true);
+    }),
     get: protectedProcedure.query(({ ctx }) => db.getProfile(ctx.user.id)),
     save: protectedProcedure.input(z.object({ username: z.string().trim().min(3).max(40), avatarUrl: z.string().url().max(500).optional(), unitSystem: z.enum(["metric", "imperial"]).default("metric"), timezone: z.string().max(64).default("Australia/Sydney") })).mutation(({ ctx, input }) => db.upsertProfile(ctx.user.id, input)),
   }),
   goals: router({
-    save: protectedProcedure.input(z.object({ currentWeight: z.string().max(32).optional(), goalWeight: z.string().max(32).optional(), pace: z.enum(["cautious", "steady", "slower"]).optional(), primaryGoal: z.string().max(120).optional() })).mutation(({ ctx, input }) => db.upsertGoal(ctx.user.id, input)),
+    save: protectedProcedure.input(z.object({ currentWeight: z.string().max(32).optional(), goalWeight: z.string().max(32).optional(), pace: z.enum(["cautious", "steady", "slower"]).optional(), primaryGoal: z.string().max(120).optional() })).mutation(async ({ ctx, input }) => {
+      const { details } = await db.getPersonalDetails(ctx.user.id, ctx.user.name);
+      const next = { ...details,
+        ...(input.currentWeight !== undefined ? { weightKg: input.currentWeight.trim() ? Number(input.currentWeight) : undefined } : {}),
+        ...(input.goalWeight !== undefined ? { targetWeightKg: input.goalWeight.trim() ? Number(input.goalWeight) : undefined } : {}),
+        ...(input.primaryGoal !== undefined ? { goal: input.primaryGoal as typeof details.goal } : {}),
+        ...(input.pace ? { progressRate: input.pace === "steady" ? 0.5 : 0.25 } : {}),
+      };
+      const errors = validatePersonalDetails(next);
+      if (Object.keys(errors).length) throw new Error(Object.values(errors).join(" "));
+      return db.savePersonalDetails(ctx.user.id, ctx.user.name, next);
+    }),
   }),
   feedback: router({
     create: protectedProcedure.input(z.object({ category: z.enum(["feature", "issue", "change"]), message: z.string().trim().min(1).max(4000), contactAllowed: z.boolean().default(false) })).mutation(({ ctx, input }) => db.createFeedback(ctx.user.id, input)),
@@ -80,14 +106,16 @@ export const appRouter = router({
     overview: adminProcedure.query(() => db.getAdminOverview()),
   }),
   coach: router({
-    ask: publicProcedure.input(z.object({
+    ask: protectedProcedure.input(z.object({
       message: z.string().trim().min(1).max(1200),
       goal: z.string().max(120).optional(),
       preferences: z.string().max(600).optional(),
       equipment: z.string().max(200).optional(),
       healthContext: z.string().max(800).optional(),
-    })).mutation(async ({ input }) => {
+    })).mutation(async ({ ctx, input }) => {
+      const { details } = await db.getPersonalDetails(ctx.user.id, ctx.user.name);
       const context = [
+        `Authenticated personal details: ${profileCoachContext(details)}`,
         input.goal ? `Goal: ${input.goal}` : "",
         input.preferences ? `Preferences or limitations: ${input.preferences}` : "",
         input.equipment ? `Equipment: ${input.equipment}` : "",

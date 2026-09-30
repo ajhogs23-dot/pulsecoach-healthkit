@@ -1,0 +1,48 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "urn:pulsecoach:native-settings",
+  "title": "PulseCoach native settings",
+  "description": "Canonical authenticated Personal Details payload used by the SwiftUI package. Measurements are stored in centimetres and kilograms; unitSystem controls display.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["name", "goal", "foodPreference", "trainingSetup", "coachingStyle", "activityLevel"],
+  "properties": {
+    "name": { "type": "string", "minLength": 1, "maxLength": 120, "pattern": "\\S" },
+    "age": { "type": "integer", "minimum": 18, "maximum": 120 },
+    "sexForEstimate": { "type": "string", "enum": ["Male", "Female"] },
+    "unitSystem": { "type": "string", "enum": ["metric", "imperial"] },
+    "heightCm": { "type": "number", "minimum": 100, "maximum": 250 },
+    "weightKg": { "type": "number", "minimum": 30, "maximum": 400 },
+    "targetWeightKg": { "type": "number", "minimum": 30, "maximum": 400 },
+    "goal": { "type": "string", "enum": ["Lose fat", "Build strength", "Improve fitness", "Maintain health"] },
+    "weightGoal": { "type": "string", "enum": ["Weight loss", "Maintenance", "Muscle gain"] },
+    "progressRate": { "type": "number", "minimum": 0, "maximum": 1 },
+    "activityLevel": { "type": "string", "enum": ["Sedentary", "Lightly active", "Moderately active", "Very active"] },
+    "lifestyleActivity": { "$ref": "#/definitions/text" },
+    "exerciseFrequency": { "type": "integer", "minimum": 0, "maximum": 7 },
+    "foodPreference": { "type": "string", "enum": ["No preference", "Vegetarian", "High-protein"] },
+    "allergies": { "$ref": "#/definitions/text" },
+    "nutritionApproach": { "$ref": "#/definitions/text" },
+    "trainingDays": { "$ref": "#/definitions/text" },
+    "workoutDuration": { "type": "integer", "minimum": 5, "maximum": 180 },
+    "trainingSetup": { "type": "string", "enum": ["Dumbbells", "Full gym", "Bodyweight"] },
+    "limitations": { "$ref": "#/definitions/text" },
+    "homeGym": { "$ref": "#/definitions/text" },
+    "currentGym": { "$ref": "#/definitions/text" },
+    "homeGymId": { "$ref": "#/definitions/text" },
+    "currentGymId": { "$ref": "#/definitions/text" },
+    "coachingStyle": { "type": "string", "enum": ["Encouraging", "Direct", "Minimal"] },
+    "personality": { "$ref": "#/definitions/text" },
+    "notifications": { "$ref": "#/definitions/text" },
+    "encouragement": { "$ref": "#/definitions/text" },
+    "calorieTarget": { "type": "integer", "minimum": 1200, "maximum": 6000 },
+    "calorieTargetMode": { "type": "string", "enum": ["selected", "estimated"] }
+  },
+  "allOf": [
+    { "if": { "properties": { "calorieTargetMode": { "const": "selected" } }, "required": ["calorieTargetMode"] }, "then": { "required": ["calorieTarget"] } },
+    { "if": { "properties": { "calorieTargetMode": { "const": "estimated" } }, "required": ["calorieTargetMode"] }, "then": { "required": ["age", "sexForEstimate", "heightCm", "weightKg"] } }
+  ],
+  "definitions": {
+    "text": { "type": "string", "maxLength": 1000 }
+  }
+}

@@ -104,10 +104,7 @@ export default function CoachScreen() {
     setListening(false);
     coachMutation.mutate({
       message,
-      goal: "Build strength and improve fitness",
-      preferences: "No preference set yet",
-      equipment: "Dumbbells and bodyweight",
-      healthContext: "Only user-approved data is available; do not infer missing values.",
+
     });
   }
 

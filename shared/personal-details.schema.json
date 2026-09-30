@@ -1,0 +1,7 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "urn:pulsecoach:personal-details",
+  "title": "PulseCoach Personal Details",
+  "description": "Canonical authenticated Personal Details payload. This entry point reuses the complete settings schema so clients have one source of truth.",
+  "$ref": "./settings.schema.json"
+}

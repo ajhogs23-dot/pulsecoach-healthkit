@@ -1,3 +1,4 @@
+import { isExerciseContraindicated } from "./workout-selection";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { ProfilePreferences } from "@/lib/profile-preferences";
 import type { MuscleGroup } from "@/lib/exercise-library";
@@ -103,8 +104,8 @@ export function getWorkoutPlan(profile: ProfilePreferences): { title: string; du
 
   return {
     title: build ? "Full-body strength" : profile.goal === "Lose fat" ? "Full-body conditioning" : "Full-body fitness",
-    durationMinutes: sets === 2 ? 25 : 35,
-    exercises: byEquipment[profile.trainingSetup].map((exercise) => ({ ...exercise, sets, repTarget })),
+    durationMinutes: profile.workoutDuration ?? (sets === 2 ? 25 : 35),
+    exercises: byEquipment[profile.trainingSetup].filter((exercise) => !isExerciseContraindicated(exercise.name, profile.limitations ?? "", exercise.focus)).map((exercise) => ({ ...exercise, sets, repTarget })),
   };
 }
 

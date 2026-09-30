@@ -22,7 +22,7 @@ export function ExerciseThumbnail({ exerciseId, exerciseName, size = 64 }: Props
 
   return <View style={[styles.frame, { width: size, height: size }]}> 
     {approvedImage || media?.imageUrl
-      ? <Image source={approvedImage ?? { uri: media?.imageUrl }} style={styles.image} contentFit="cover" cachePolicy="disk" transition={180} />
+      ? <Image source={approvedImage ?? { uri: media?.imageUrl }} style={styles.image} contentFit={approvedImage ? "contain" : "cover"} cachePolicy="disk" transition={180} />
       : <IconSymbol name="figure.strengthtraining.traditional" size={Math.round(size * 0.45)} color="#B8F36B" />}
   </View>;
 }

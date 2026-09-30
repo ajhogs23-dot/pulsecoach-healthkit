@@ -1,3 +1,5 @@
+import { DEFAULT_PROFILE_PREFERENCES, personalDetailsSchema, type ProfilePreferences } from "../shared/personal-details";
+import { DEFAULT_USER_SETTINGS } from "../shared/settings-preferences";
 import { eq, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { InsertUser, feedback, goals, profiles, users } from "../drizzle/schema";
@@ -99,7 +101,10 @@ export async function getProfile(userId: number) {
 export async function upsertProfile(userId: number, data: { username: string; avatarUrl?: string; unitSystem?: "metric" | "imperial"; timezone?: string }) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  await db.insert(profiles).values({ userId, ...data }).onDuplicateKeyUpdate({ set: data });
+  await db.insert(profiles).values({ userId, ...data }).onDuplicateKeyUpdate({ set: {
+    ...data,
+    ...(data.unitSystem ? { personalDetailsJson: sql`CASE WHEN ${profiles.personalDetailsJson} IS NULL THEN NULL ELSE JSON_SET(${profiles.personalDetailsJson}, '$.unitSystem', ${data.unitSystem}) END` } : {}),
+  } });
   return getProfile(userId);
 }
 
@@ -128,3 +133,32 @@ export async function getAdminOverview() {
   return { registeredUsers: Number(registered[0]?.value ?? 0), activeUsers: Number(active[0]?.value ?? 0), feedbackOpen: Number(feedbackOpen[0]?.value ?? 0) };
 }
 
+
+export async function getPersonalDetails(userId: number, name: string | null) {
+  const database = await getDb();
+  if (!database) throw new Error("Database not available");
+  const profile = await getProfile(userId);
+  const legacyGoals = await database.select().from(goals).where(eq(goals.userId, userId)).orderBy(sql`${goals.updatedAt} DESC`).limit(1);
+  const legacy = legacyGoals[0];
+  const details: ProfilePreferences = { ...DEFAULT_PROFILE_PREFERENCES, name: name ?? "", unitSystem: profile?.unitSystem ?? "metric" };
+  if (legacy?.currentWeight && Number.isFinite(Number(legacy.currentWeight))) details.weightKg = Number(legacy.currentWeight);
+  if (legacy?.goalWeight && Number.isFinite(Number(legacy.goalWeight))) details.targetWeightKg = Number(legacy.goalWeight);
+  if (legacy?.primaryGoal) details.goal = legacy.primaryGoal as ProfilePreferences["goal"];
+  if (legacy?.pace) details.progressRate = legacy.pace === "steady" ? 0.5 : 0.25;
+  const stored = profile?.personalDetailsJson ? JSON.parse(profile.personalDetailsJson) : {};
+  return { details: { ...DEFAULT_PROFILE_PREFERENCES, ...Object.fromEntries(Object.entries(profile?.personalDetailsJson ? { ...DEFAULT_PROFILE_PREFERENCES, ...stored } : details).filter(([key]) => key in personalDetailsSchema.shape)) as Partial<ProfilePreferences>, settings: { ...DEFAULT_USER_SETTINGS, ...(stored.settings ?? {}) } }, migrated: Boolean(profile?.personalDetailsJson), existing: { ...(name ? { name } : {}), ...(legacy?.currentWeight ? { weightKg: details.weightKg } : {}), ...(legacy?.goalWeight ? { targetWeightKg: details.targetWeightKg } : {}), ...(legacy?.primaryGoal ? { goal: details.goal } : {}), ...(legacy?.pace ? { progressRate: details.progressRate } : {}), ...(profile ? { unitSystem: profile.unitSystem } : {}), ...stored } };
+}
+export async function savePersonalDetails(userId: number, name: string | null, details: ProfilePreferences, importing = false) {
+  const database = await getDb();
+  if (!database) throw new Error("Database not available");
+  const current = await getPersonalDetails(userId, name);
+  if (importing && current.migrated) return current.details;
+  const existingProfile = await getProfile(userId);
+  const previous = existingProfile?.personalDetailsJson ? JSON.parse(existingProfile.personalDetailsJson) : {};
+  const unknownFields = Object.fromEntries(Object.entries(previous).filter(([key]) => !(key in personalDetailsSchema.shape)));
+  const next = importing ? { ...current.details, ...details, ...current.existing } : { ...unknownFields, ...details };
+  const personalDetailsJson = JSON.stringify(next);
+  // Import is insert-if-empty so concurrent migrations cannot replace a saved profile.
+  await database.insert(profiles).values({ userId, username: `account_${userId}`, unitSystem: next.unitSystem ?? "metric", personalDetailsJson }).onDuplicateKeyUpdate({ set: importing ? { personalDetailsJson: sql`COALESCE(${profiles.personalDetailsJson}, ${personalDetailsJson})` } : { personalDetailsJson, unitSystem: next.unitSystem ?? "metric" } });
+  return (await getPersonalDetails(userId, name)).details;
+}

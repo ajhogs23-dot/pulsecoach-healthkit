@@ -7,7 +7,7 @@ import { Image } from "expo-image";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useAuth } from "@/hooks/use-auth";
 import { addFoodLog, loadFoodLog, removeFoodLog, summariseFoodLog, todayFoodLog, type FoodLogEntry, type MealName } from "@/lib/food-log";
-import { calculateCalorieEstimate, DEFAULT_PROFILE_PREFERENCES, loadProfilePreferences, type ProfilePreferences } from "@/lib/profile-preferences";
+import { activeCalorieTarget, DEFAULT_PROFILE_PREFERENCES, loadProfilePreferences, type ProfilePreferences } from "@/lib/profile-preferences";
 import { commonFoods, searchFoodProducts, type CatalogueItem } from "@/lib/food-catalogue";
 import { foodAmountLabel, parseFoodServing, servingMultiplier } from "@/lib/food-serving";
 
@@ -21,7 +21,7 @@ export default function NutritionScreen() {
   const scrollRef = useRef<ScrollView>(null);
   const searchPosition = useRef(0);
   const searchInputRef = useRef<TextInput>(null);
-  const { user } = useAuth({ autoFetch: false });
+  const { user } = useAuth();
   const userKey = storageKey(user);
   const [query, setQuery] = useState("");
   const [selectedMeal, setSelectedMeal] = useState<MealName>("Breakfast");
@@ -45,11 +45,12 @@ export default function NutritionScreen() {
 
   useFocusEffect(useCallback(() => {
     let active = true;
+    setProfile(DEFAULT_PROFILE_PREFERENCES);
     void Promise.all([loadFoodLog(userKey), loadProfilePreferences(userKey)]).then(([savedEntries, savedProfile]) => {
       if (!active) return;
       setEntries(savedEntries);
       setProfile(savedProfile);
-    });
+    }).catch(() => { if (active) setProfile(DEFAULT_PROFILE_PREFERENCES); });
     return () => { active = false; };
   }, [userKey]));
 
@@ -96,8 +97,7 @@ export default function NutritionScreen() {
   const todayEntries = todayFoodLog(entries);
   const totals = summariseFoodLog(entries);
   const kilojoules = totals.calories * 4.184;
-  const calculatedTarget = calculateCalorieEstimate(profile)?.recommendedCalories;
-  const effectiveTarget = profile.calorieTarget ?? calculatedTarget;
+  const effectiveTarget = activeCalorieTarget(profile);
   const remainingCalories = effectiveTarget === undefined ? undefined : effectiveTarget - totals.calories;
 
   const selectSuggestion = (item: CatalogueItem) => {

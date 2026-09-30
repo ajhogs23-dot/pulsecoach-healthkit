@@ -11,6 +11,7 @@ import { DEFAULT_PROFILE_PREFERENCES, loadProfilePreferences, type ProfilePrefer
 import { EXERCISE_LIBRARY, exercisesFor, type ExerciseEquipment, type ExerciseLibraryItem, type MuscleGroup } from "@/lib/exercise-library";
 import { getExerciseProgression, loadCompletedWorkouts, loadWorkoutCheckIn, saveActiveWorkoutPlan, type CompletedWorkout, type WorkoutExercise } from "@/lib/workout-log";
 import { applyReadinessVolume, isExerciseContraindicated, type WorkoutReadiness } from "@/lib/workout-selection";
+import { exercisesForGymInventory, LocalGymRepository, type GymEquipmentInstance } from "@/lib/gym-directory";
 
 const mint = "#B8F36B";
 const muted = "#A8B3A6";
@@ -31,14 +32,15 @@ const workoutTypes: WorkoutType[] = [
   { title: "Other activity", detail: "Record another type of exercise or movement session.", mark: "+", action: "activity" },
 ];
 
-function painSafeExercises(focus: MuscleGroup, profile: ProfilePreferences, limitation: string) {
-  return exercisesFor(focus, profile.trainingSetup).filter((exercise) =>
-    !isExerciseContraindicated(exercise.name, limitation, exercise.muscleGroup),
+function painSafeExercises(focus: MuscleGroup, profile: ProfilePreferences, limitation: string, gymInventory: GymEquipmentInstance[] = []) {
+  const gymCandidates = gymInventory.length ? exercisesForGymInventory(gymInventory, focus).filter((exercise) => exercise.equipment.includes(profile.trainingSetup)) : exercisesFor(focus, profile.trainingSetup);
+  return gymCandidates.filter((exercise) =>
+    !isExerciseContraindicated(exercise.name, [profile.limitations, limitation].filter(Boolean).join("; "), exercise.muscleGroup),
   );
 }
 
-function pickExercises(focus: MuscleGroup, duration: number, profile: ProfilePreferences, offset = 0, limitation = "", readiness: WorkoutReadiness = "Ready") {
-  const available = painSafeExercises(focus, profile, limitation);
+function pickExercises(focus: MuscleGroup, duration: number, profile: ProfilePreferences, offset = 0, limitation = "", readiness: WorkoutReadiness = "Ready", gymInventory: GymEquipmentInstance[] = []) {
+  const available = painSafeExercises(focus, profile, limitation, gymInventory);
   const count = Math.min(available.length, focus === "Cardio" ? Math.max(1, Math.round(duration / 15)) : Math.max(3, Math.round(duration / 8)));
   if (focus !== "Full body") {
     const selected = Array.from({ length: count }, (_, index) => available[(index + offset) % available.length]);
@@ -83,9 +85,10 @@ export default function WorkoutScreen() {
     equipment: requestedEquipment,
     fresh,
   } = useLocalSearchParams<{ focus?: string; duration?: string; readiness?: string; limitation?: string; equipment?: string; fresh?: string }>();
-  const { user } = useAuth({ autoFetch: false });
+  const { user } = useAuth();
   const userKey = storageKey(user);
   const [profile, setProfile] = useState<ProfilePreferences>(DEFAULT_PROFILE_PREFERENCES);
+  const [gymInventory, setGymInventory] = useState<GymEquipmentInstance[]>([]);
   const [history, setHistory] = useState<CompletedWorkout[]>([]);
   const [focus, setFocus] = useState<MuscleGroup>("Full body");
   const [duration, setDuration] = useState(30);
@@ -101,7 +104,8 @@ export default function WorkoutScreen() {
 
   useFocusEffect(useCallback(() => {
     let active = true;
-    void Promise.all([loadProfilePreferences(userKey), loadCompletedWorkouts(userKey), loadWorkoutCheckIn(userKey), AsyncStorage.getItem(draftKey)]).then(([savedProfile, savedHistory, savedCheckIn, rawDraft]) => {
+    setProfile(DEFAULT_PROFILE_PREFERENCES);
+    void Promise.all([loadProfilePreferences(userKey), loadCompletedWorkouts(userKey), loadWorkoutCheckIn(userKey), AsyncStorage.getItem(draftKey)]).then(async ([savedProfile, savedHistory, savedCheckIn, rawDraft]) => {
       if (!active) return;
       const focusAliases: Partial<Record<string, MuscleGroup>> = { Biceps: "Arms", Triceps: "Arms", Glutes: "Legs", Run: "Cardio", Walk: "Cardio", Cycle: "Cardio" };
       let draft: BuilderDraft | undefined;
@@ -111,7 +115,7 @@ export default function WorkoutScreen() {
         ? muscleGroups.includes(requestedFocus as MuscleGroup) ? requestedFocus as MuscleGroup : focusAliases[requestedFocus] ?? "Full body"
         : "Full body";
       const parsedDuration = Number(requestedDuration);
-      const initialDuration = restoreDraft ? draft!.duration : Number.isFinite(parsedDuration) && parsedDuration >= 10 && parsedDuration <= 180 ? Math.round(parsedDuration) : 30;
+      const initialDuration = restoreDraft ? draft!.duration : Number.isFinite(parsedDuration) && parsedDuration >= 10 && parsedDuration <= 180 ? Math.round(parsedDuration) : savedProfile.workoutDuration ?? 30;
       const hasRequestedCheckIn = typeof requestedReadiness === "string" || typeof requestedLimitation === "string";
       const initialReadiness: WorkoutReadiness = hasRequestedCheckIn
         ? requestedReadiness === "Low" || requestedReadiness === "Okay" ? requestedReadiness : "Ready"
@@ -130,14 +134,18 @@ export default function WorkoutScreen() {
       setDuration(initialDuration);
       setReadiness(initialReadiness);
       setLimitation(initialLimitation);
-      const restoredExercises = restoreDraft ? draft!.exerciseIds.map((id) => EXERCISE_LIBRARY.find((item) => item.id === id)).filter((item): item is ExerciseLibraryItem => Boolean(item)) : [];
-      setSelected(restoredExercises.length ? restoredExercises : pickExercises(initialFocus, initialDuration, effectiveProfile, savedHistory.length, initialLimitation, initialReadiness));
-      const initialExercises = restoredExercises.length ? restoredExercises : pickExercises(initialFocus, initialDuration, effectiveProfile, savedHistory.length, initialLimitation, initialReadiness);
+      const currentGymId = savedProfile.currentGymId;
+      const inventory = currentGymId ? await new LocalGymRepository().listEquipment(currentGymId) : [];
+      if (!active) return;
+      setGymInventory(inventory);
+      const restoredExercises = restoreDraft ? draft!.exerciseIds.map((id) => EXERCISE_LIBRARY.find((item) => item.id === id)).filter((item): item is ExerciseLibraryItem => Boolean(item) && !isExerciseContraindicated(item!.name, [savedProfile.limitations, initialLimitation].filter(Boolean).join("; "), item!.muscleGroup)) : [];
+      setSelected(restoredExercises.length ? restoredExercises : pickExercises(initialFocus, initialDuration, effectiveProfile, savedHistory.length, initialLimitation, initialReadiness, inventory));
+      const initialExercises = restoredExercises.length ? restoredExercises : pickExercises(initialFocus, initialDuration, effectiveProfile, savedHistory.length, initialLimitation, initialReadiness, inventory);
       const rememberedWeights = Object.fromEntries(initialExercises.filter(usesAddedWeight).flatMap((item) => { const saved = draft?.weights?.[item.id]; const last = getExerciseProgression(savedHistory, toWorkoutExercise(item, effectiveProfile, initialDuration, initialExercises.length, initialReadiness)).lastWeightKg; const value = saved ?? (last !== undefined ? String(last) : ""); return [[item.id, value]]; }));
       setWeights(rememberedWeights);
       setShowBuilder(restoreDraft ? draft!.showBuilder : Boolean(requestedFocus));
       setHydrated(true);
-    });
+    }).catch(() => { if (active) { setProfile(DEFAULT_PROFILE_PREFERENCES); setHydrated(false); } });
     return () => { active = false; };
   }, [draftKey, fresh, requestedDuration, requestedEquipment, requestedFocus, requestedLimitation, requestedReadiness, userKey]));
 
@@ -148,7 +156,7 @@ export default function WorkoutScreen() {
   }, [draftKey, duration, focus, hydrated, profile.trainingSetup, selected, showBuilder, weights]);
 
   const chooseFocus = (nextFocus: MuscleGroup) => {
-    const next = pickExercises(nextFocus, duration, profile, history.length, limitation, readiness);
+    const next = pickExercises(nextFocus, duration, profile, history.length, limitation, readiness, gymInventory);
     setFocus(nextFocus);
     setFocusOpen(false);
     setEditingIndex(null);
@@ -159,7 +167,7 @@ export default function WorkoutScreen() {
   const chooseDuration = (minutes: number) => {
     setDuration(minutes);
     setEditingIndex(null);
-    setSelected(pickExercises(focus, minutes, profile, history.length, limitation, readiness));
+    setSelected(pickExercises(focus, minutes, profile, history.length, limitation, readiness, gymInventory));
   };
 
   const replaceExercise = (index: number, replacement: ExerciseLibraryItem) => {

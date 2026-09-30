@@ -13,7 +13,7 @@ const muted = "#A8B3A6";
 const storageKey = (user: { openId?: string; id?: number } | null) => user?.openId ?? (user?.id ? String(user.id) : "local-user");
 
 export default function SessionScreen() {
-  const { user } = useAuth({ autoFetch: false });
+  const { user } = useAuth();
   const userKey = storageKey(user);
   const [profile, setProfile] = useState<ProfilePreferences>(DEFAULT_PROFILE_PREFERENCES);
   const [activePlan, setActivePlan] = useState<ActiveWorkoutPlan | undefined>();
@@ -29,11 +29,15 @@ export default function SessionScreen() {
   const [finished, setFinished] = useState(false);
 
   useEffect(() => {
+    let active = true;
+    setProfile(DEFAULT_PROFILE_PREFERENCES);
     void Promise.all([loadProfilePreferences(userKey), loadActiveWorkoutPlan(userKey), loadCompletedWorkouts(userKey)]).then(([savedProfile, savedPlan, savedHistory]) => {
+      if (!active) return;
       setProfile(savedProfile);
       setActivePlan(savedPlan);
       setWorkoutHistory(savedHistory);
-    });
+    }).catch(() => { if (active) setProfile(DEFAULT_PROFILE_PREFERENCES); });
+    return () => { active = false; };
   }, [userKey]);
 
   const plan = activePlan ?? getWorkoutPlan(profile);

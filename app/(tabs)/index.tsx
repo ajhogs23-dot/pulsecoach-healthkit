@@ -8,7 +8,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { loadHealthSnapshot, syncHealthData, type HealthSyncSnapshot } from "@/lib/healthkit";
 import { loadManualActivities, summariseManualActivities, type ManualActivity } from "@/lib/manual-activities";
 import { loadFoodLog, summariseFoodLog, todayFoodLog, type FoodLogEntry } from "@/lib/food-log";
-import { calculateCalorieEstimate, DEFAULT_PROFILE_PREFERENCES, loadProfilePreferences, type ProfilePreferences } from "@/lib/profile-preferences";
+import { activeCalorieTarget, DEFAULT_PROFILE_PREFERENCES, loadProfilePreferences, type ProfilePreferences } from "@/lib/profile-preferences";
 import { getWorkoutPlan, loadCompletedWorkouts, todayCompletedWorkouts, type CompletedWorkout } from "@/lib/workout-log";
 
 const mint = "#B8F36B";
@@ -18,7 +18,7 @@ const muted = "#A8B3A6";
 const storageKey = (user: { openId?: string; id?: number } | null) => user?.openId ?? (user?.id ? String(user.id) : "local-user");
 
 export default function HomeScreen() {
-  const { user } = useAuth({ autoFetch: false });
+  const { user } = useAuth();
   const userKey = storageKey(user);
   const [health, setHealth] = useState<HealthSyncSnapshot | null>(null);
   const [manualActivities, setManualActivities] = useState<ManualActivity[]>([]);
@@ -28,6 +28,7 @@ export default function HomeScreen() {
 
   useFocusEffect(useCallback(() => {
     let active = true;
+    setProfile(DEFAULT_PROFILE_PREFERENCES);
     const refresh = async () => {
       try {
         const [savedActivities, savedFood, savedProfile, savedWorkouts] = await Promise.all([
@@ -69,7 +70,7 @@ export default function HomeScreen() {
   const hasActiveEnergy = summary?.activeEnergyKcal !== undefined || manualSummary.calories > 0;
   const nutritionSummary = summariseFoodLog(foodEntries);
   const foodsLoggedToday = todayFoodLog(foodEntries).length;
-  const calorieTarget = profile.calorieTarget ?? calculateCalorieEstimate(profile)?.recommendedCalories;
+  const calorieTarget = activeCalorieTarget(profile);
   const calorieRemaining = calorieTarget === undefined ? undefined : calorieTarget - nutritionSummary.calories;
   const calorieProgress = calorieTarget ? Math.min(100, Math.max(0, nutritionSummary.calories / calorieTarget * 100)) : 0;
   const workoutsToday = todayCompletedWorkouts(workouts);
@@ -77,7 +78,7 @@ export default function HomeScreen() {
   const now = new Date();
   const hour = now.getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
-  const firstName = profile.name.trim().split(/\s+/)[0] || user?.name?.trim().split(/\s+/)[0] || "Andy";
+  const firstName = profile.name.trim().split(/\s+/)[0] || user?.name?.trim().split(/\s+/)[0] || "there";
   const dateLabel = new Intl.DateTimeFormat("en-AU", { weekday: "long", day: "numeric", month: "short" }).format(now).toUpperCase();
   return (
     <ScreenContainer containerClassName="bg-background" className="px-5 pt-3">

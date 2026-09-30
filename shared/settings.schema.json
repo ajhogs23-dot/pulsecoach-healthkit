@@ -1,0 +1,611 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "urn:pulsecoach:settings",
+  "title": "PulseCoach settings",
+  "$comment": "The document root validates the existing flat Personal Details payload. Category definitions expose the eight wireframe groups; settingsBundle includes separate Appearance and Apple Health preferences. Defaults are annotations, not migration instructions.",
+  "definitions": {
+    "basicInformation": {
+      "type": "object",
+      "title": "basicInformation",
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Display name, trimmed before validation.",
+          "minLength": 1,
+          "maxLength": 120,
+          "pattern": "\\S"
+        },
+        "age": {
+          "type": "integer",
+          "description": "Age in whole years. The current app uses age rather than date of birth.",
+          "minimum": 18,
+          "maximum": 120
+        },
+        "sexForEstimate": {
+          "type": "string",
+          "description": "Sex used by the calorie-estimation formula.",
+          "enum": [
+            "Male",
+            "Female"
+          ]
+        }
+      },
+      "required": [
+        "name"
+      ]
+    },
+    "bodyDetails": {
+      "type": "object",
+      "title": "bodyDetails",
+      "additionalProperties": false,
+      "properties": {
+        "unitSystem": {
+          "type": "string",
+          "description": "Display preference only; measurements remain stored in cm and kg.",
+          "enum": [
+            "metric",
+            "imperial"
+          ]
+        },
+        "heightCm": {
+          "type": "number",
+          "description": "Height in centimetres.",
+          "minimum": 100,
+          "maximum": 250
+        },
+        "weightKg": {
+          "type": "number",
+          "description": "Current weight in kilograms.",
+          "minimum": 30,
+          "maximum": 400
+        },
+        "targetWeightKg": {
+          "type": "number",
+          "description": "Optional target weight in kilograms.",
+          "minimum": 30,
+          "maximum": 400
+        }
+      }
+    },
+    "goals": {
+      "type": "object",
+      "title": "goals",
+      "additionalProperties": false,
+      "properties": {
+        "goal": {
+          "type": "string",
+          "description": "Main fitness goal.",
+          "enum": [
+            "Lose fat",
+            "Build strength",
+            "Improve fitness",
+            "Maintain health"
+          ]
+        },
+        "weightGoal": {
+          "type": "string",
+          "description": "Direction of the weight target.",
+          "enum": [
+            "Weight loss",
+            "Maintenance",
+            "Muscle gain"
+          ]
+        },
+        "progressRate": {
+          "type": "number",
+          "description": "Desired progress rate in kg/week; weightGoal determines direction.",
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      "required": [
+        "goal"
+      ]
+    },
+    "activityProfile": {
+      "type": "object",
+      "title": "activityProfile",
+      "additionalProperties": false,
+      "properties": {
+        "activityLevel": {
+          "type": "string",
+          "description": "Daily activity level.",
+          "enum": [
+            "Sedentary",
+            "Lightly active",
+            "Moderately active",
+            "Very active"
+          ]
+        },
+        "lifestyleActivity": {
+          "type": "string",
+          "description": "Work and lifestyle activity description.",
+          "maxLength": 1000
+        },
+        "exerciseFrequency": {
+          "type": "integer",
+          "description": "Typical exercise days per week.",
+          "minimum": 0,
+          "maximum": 7
+        }
+      },
+      "required": [
+        "activityLevel"
+      ]
+    },
+    "foodPreferences": {
+      "type": "object",
+      "title": "foodPreferences",
+      "additionalProperties": false,
+      "properties": {
+        "foodPreference": {
+          "type": "string",
+          "description": "Dietary preference.",
+          "enum": [
+            "No preference",
+            "Vegetarian",
+            "High-protein"
+          ]
+        },
+        "allergies": {
+          "type": "string",
+          "description": "Allergies or food exclusions.",
+          "maxLength": 1000
+        },
+        "nutritionApproach": {
+          "type": "string",
+          "description": "Preferred nutrition approach.",
+          "maxLength": 1000
+        }
+      },
+      "required": [
+        "foodPreference"
+      ]
+    },
+    "trainingPreferences": {
+      "type": "object",
+      "title": "trainingPreferences",
+      "additionalProperties": false,
+      "properties": {
+        "trainingDays": {
+          "type": "string",
+          "description": "Preferred training days in the existing free-text format, e.g. Mon, Wed, Fri.",
+          "maxLength": 1000
+        },
+        "workoutDuration": {
+          "type": "integer",
+          "description": "Preferred workout duration in whole minutes.",
+          "minimum": 5,
+          "maximum": 180
+        },
+        "trainingSetup": {
+          "type": "string",
+          "description": "Available training equipment.",
+          "enum": [
+            "Dumbbells",
+            "Full gym",
+            "Bodyweight"
+          ]
+        },
+        "limitations": {
+          "type": "string",
+          "description": "Injuries, pain or movement limitations.",
+          "maxLength": 1000
+        },
+        "homeGym": {
+          "type": "string",
+          "description": "Home gym display name or description.",
+          "maxLength": 1000
+        },
+        "currentGym": {
+          "type": "string",
+          "description": "Current gym display name or description.",
+          "maxLength": 1000
+        },
+        "homeGymId": {
+          "type": "string",
+          "description": "Optional home gym directory ID. Clear when its free-text description changes.",
+          "maxLength": 1000
+        },
+        "currentGymId": {
+          "type": "string",
+          "description": "Optional current gym directory ID. Clear when its free-text description changes.",
+          "maxLength": 1000
+        }
+      },
+      "required": [
+        "trainingSetup"
+      ]
+    },
+    "coachingPreferences": {
+      "type": "object",
+      "title": "coachingPreferences",
+      "additionalProperties": false,
+      "properties": {
+        "coachingStyle": {
+          "type": "string",
+          "description": "Preferred coaching style.",
+          "enum": [
+            "Encouraging",
+            "Direct",
+            "Minimal"
+          ]
+        },
+        "personality": {
+          "type": "string",
+          "description": "Preferred humour or personality level.",
+          "maxLength": 1000
+        },
+        "notifications": {
+          "type": "string",
+          "description": "Notification preferences; this field does not schedule notifications.",
+          "maxLength": 1000
+        },
+        "encouragement": {
+          "type": "string",
+          "description": "Encouragement preferences.",
+          "maxLength": 1000
+        }
+      },
+      "required": [
+        "coachingStyle"
+      ]
+    },
+    "calorieTargets": {
+      "type": "object",
+      "title": "calorieTargets",
+      "additionalProperties": false,
+      "properties": {
+        "calorieTarget": {
+          "type": "integer",
+          "description": "User-selected kcal/day. Retained when the estimate becomes active.",
+          "minimum": 1200,
+          "maximum": 6000
+        },
+        "calorieTargetMode": {
+          "type": "string",
+          "description": "Active target source. When omitted on a legacy record, use the selected target if present, otherwise the calculated estimate.",
+          "enum": [
+            "selected",
+            "estimated"
+          ]
+        }
+      }
+    },
+    "personalDetails": {
+      "type": "object",
+      "description": "Canonical flat authenticated profile matching ProfilePreferences. Optional fields are omitted, not null. This schema validates new saves, not permissive legacy imports. Ownership is enforced by the authenticated server, not JSON Schema.",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "goal",
+        "foodPreference",
+        "trainingSetup",
+        "coachingStyle",
+        "activityLevel"
+      ],
+      "properties": {
+        "name": {
+          "$ref": "#/definitions/basicInformation/properties/name"
+        },
+        "age": {
+          "$ref": "#/definitions/basicInformation/properties/age"
+        },
+        "sexForEstimate": {
+          "$ref": "#/definitions/basicInformation/properties/sexForEstimate"
+        },
+        "unitSystem": {
+          "$ref": "#/definitions/bodyDetails/properties/unitSystem"
+        },
+        "heightCm": {
+          "$ref": "#/definitions/bodyDetails/properties/heightCm"
+        },
+        "weightKg": {
+          "$ref": "#/definitions/bodyDetails/properties/weightKg"
+        },
+        "targetWeightKg": {
+          "$ref": "#/definitions/bodyDetails/properties/targetWeightKg"
+        },
+        "goal": {
+          "$ref": "#/definitions/goals/properties/goal"
+        },
+        "weightGoal": {
+          "$ref": "#/definitions/goals/properties/weightGoal"
+        },
+        "progressRate": {
+          "$ref": "#/definitions/goals/properties/progressRate"
+        },
+        "activityLevel": {
+          "$ref": "#/definitions/activityProfile/properties/activityLevel"
+        },
+        "lifestyleActivity": {
+          "$ref": "#/definitions/activityProfile/properties/lifestyleActivity"
+        },
+        "exerciseFrequency": {
+          "$ref": "#/definitions/activityProfile/properties/exerciseFrequency"
+        },
+        "foodPreference": {
+          "$ref": "#/definitions/foodPreferences/properties/foodPreference"
+        },
+        "allergies": {
+          "$ref": "#/definitions/foodPreferences/properties/allergies"
+        },
+        "nutritionApproach": {
+          "$ref": "#/definitions/foodPreferences/properties/nutritionApproach"
+        },
+        "trainingDays": {
+          "$ref": "#/definitions/trainingPreferences/properties/trainingDays"
+        },
+        "workoutDuration": {
+          "$ref": "#/definitions/trainingPreferences/properties/workoutDuration"
+        },
+        "trainingSetup": {
+          "$ref": "#/definitions/trainingPreferences/properties/trainingSetup"
+        },
+        "limitations": {
+          "$ref": "#/definitions/trainingPreferences/properties/limitations"
+        },
+        "homeGym": {
+          "$ref": "#/definitions/trainingPreferences/properties/homeGym"
+        },
+        "currentGym": {
+          "$ref": "#/definitions/trainingPreferences/properties/currentGym"
+        },
+        "homeGymId": {
+          "$ref": "#/definitions/trainingPreferences/properties/homeGymId"
+        },
+        "currentGymId": {
+          "$ref": "#/definitions/trainingPreferences/properties/currentGymId"
+        },
+        "coachingStyle": {
+          "$ref": "#/definitions/coachingPreferences/properties/coachingStyle"
+        },
+        "personality": {
+          "$ref": "#/definitions/coachingPreferences/properties/personality"
+        },
+        "notifications": {
+          "$ref": "#/definitions/coachingPreferences/properties/notifications"
+        },
+        "encouragement": {
+          "$ref": "#/definitions/coachingPreferences/properties/encouragement"
+        },
+        "calorieTarget": {
+          "$ref": "#/definitions/calorieTargets/properties/calorieTarget"
+        },
+        "calorieTargetMode": {
+          "$ref": "#/definitions/calorieTargets/properties/calorieTargetMode"
+        },
+        "settings": {
+          "type": "object",
+          "description": "Extended settings stored with the authenticated profile.",
+          "additionalProperties": true
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "calorieTargetMode": {
+                "const": "selected"
+              }
+            },
+            "required": [
+              "calorieTargetMode"
+            ]
+          },
+          "then": {
+            "required": [
+              "calorieTarget"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "calorieTargetMode": {
+                "const": "estimated"
+              }
+            },
+            "required": [
+              "calorieTargetMode"
+            ]
+          },
+          "then": {
+            "required": [
+              "age",
+              "sexForEstimate",
+              "heightCm",
+              "weightKg"
+            ]
+          }
+        }
+      ]
+    },
+    "calculatedValues": {
+      "type": "object",
+      "readOnly": true,
+      "description": "Read-only presentation values. Never persist or accept these as profile settings. JSON Schema validates types, not BMI/calorie formulas.",
+      "additionalProperties": false,
+      "properties": {
+        "bmi": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "readOnly": true,
+          "description": "Calculated kg/m2 from current height and weight."
+        },
+        "pulseCoachEstimatedDailyCalories": {
+          "type": "integer",
+          "description": "Calculated PulseCoach daily target in kcal/day.",
+          "minimum": 1200,
+          "maximum": 6000,
+          "readOnly": true
+        },
+        "estimatedMaintenanceCalories": {
+          "type": "integer",
+          "minimum": 0,
+          "readOnly": true,
+          "description": "Estimated maintenance kcal/day."
+        },
+        "restingCalories": {
+          "type": "integer",
+          "minimum": 0,
+          "readOnly": true,
+          "description": "Estimated resting kcal/day."
+        },
+        "activeDailyCalorieTarget": {
+          "type": "integer",
+          "description": "Active target resolved from selected/estimated mode, in kcal/day.",
+          "minimum": 1200,
+          "maximum": 6000,
+          "readOnly": true
+        }
+      }
+    },
+    "appearance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "colorScheme"
+      ],
+      "properties": {
+        "colorScheme": {
+          "type": "string",
+          "description": "Appearance preference. System is supported by the native SwiftUI view.",
+          "enum": [
+            "system",
+            "light",
+            "dark"
+          ]
+        }
+      }
+    },
+    "appleHealthPreferences": {
+      "type": "object",
+      "description": "Per-account requested categories. Enabling a preference does not prove Apple granted read access.",
+      "additionalProperties": false,
+      "required": [
+        "steps",
+        "distance",
+        "energy",
+        "exercise",
+        "workouts",
+        "heartRate",
+        "weight",
+        "sleep"
+      ],
+      "properties": {
+        "steps": {
+          "type": "boolean",
+          "default": true
+        },
+        "distance": {
+          "type": "boolean",
+          "default": true
+        },
+        "energy": {
+          "type": "boolean",
+          "default": true
+        },
+        "exercise": {
+          "type": "boolean",
+          "default": true
+        },
+        "workouts": {
+          "type": "boolean",
+          "default": true
+        },
+        "heartRate": {
+          "type": "boolean",
+          "default": true
+        },
+        "weight": {
+          "type": "boolean",
+          "default": true
+        },
+        "sleep": {
+          "type": "boolean",
+          "default": false
+        }
+      }
+    },
+    "healthDiagnostics": {
+      "type": "object",
+      "readOnly": true,
+      "description": "Sanitized diagnostics only. Never include raw health records or credentials.",
+      "additionalProperties": false,
+      "required": [
+        "enabledCategories",
+        "recordsReceived"
+      ],
+      "properties": {
+        "enabledCategories": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": [
+              "steps",
+              "distance",
+              "energy",
+              "exercise",
+              "workouts",
+              "heartRate",
+              "weight",
+              "sleep"
+            ]
+          }
+        },
+        "lastAttemptedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "lastSyncedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "cacheWrittenAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "recordsReceived": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "lastError": {
+          "type": "string"
+        }
+      }
+    },
+    "settingsBundle": {
+      "type": "object",
+      "description": "Optional aggregate interchange/view model. Do not submit this envelope to the flat profile.savePersonalDetails endpoint. Appearance and Apple Health retain their existing separate storage.",
+      "additionalProperties": false,
+      "required": [
+        "personalDetails"
+      ],
+      "properties": {
+        "personalDetails": {
+          "$ref": "#/definitions/personalDetails"
+        },
+        "appearance": {
+          "$ref": "#/definitions/appearance"
+        },
+        "appleHealth": {
+          "$ref": "#/definitions/appleHealthPreferences"
+        },
+        "calculatedValues": {
+          "$ref": "#/definitions/calculatedValues"
+        },
+        "healthDiagnostics": {
+          "$ref": "#/definitions/healthDiagnostics"
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "$ref": "#/definitions/personalDetails"
+    }
+  ]
+}
