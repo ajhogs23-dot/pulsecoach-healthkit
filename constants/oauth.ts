@@ -1,4 +1,3 @@
-import * as Linking from "expo-linking";
 import { Platform } from "react-native";
 import { MANAGED_PUBLIC_DEFAULTS } from "./public-config";
 
@@ -15,7 +14,9 @@ export const USER_INFO_KEY = "manus-runtime-user-info";
 export function getApiBaseUrl(): string { return API_BASE_URL.replace(/\/$/, ""); }
 export const getRedirectUri = () => Platform.OS === "web"
   ? `${window.location.origin}/oauth/callback`
-  : Linking.createURL("/oauth/callback", { scheme: "manuspulsecoach" });
+  // Match the installed app scheme and server allowlist exactly. Expo's URL helper
+  // can include the Metro host or extra slashes in a development build.
+  : "manuspulsecoach://oauth/callback";
 
 export async function startOAuthLogin(): Promise<string | null> {
   const { beginGitHubLogin } = await import("../lib/_core/github-login");
