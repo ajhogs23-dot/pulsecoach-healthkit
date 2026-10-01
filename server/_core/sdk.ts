@@ -260,7 +260,10 @@ class SDKServer {
     const signedInAt = new Date();
     let user = await db.getUserByOpenId(sessionUserId);
 
-    // If user not in DB, sync from OAuth server automatically
+    if (!user && session.openId.startsWith("github:")) {
+      throw ForbiddenError("User not found");
+    }
+    // Legacy managed sessions can still resolve their own existing identity.
     if (!user) {
       try {
         const userInfo = await this.getUserInfoWithJwt(sessionCookie ?? "");

@@ -51,7 +51,7 @@ export function useAuth(options?: UseAuthOptions) {
       const sessionToken = await Auth.getSessionToken();
       console.log(
         "[useAuth] Session token:",
-        sessionToken ? `present (${sessionToken.substring(0, 20)}...)` : "missing",
+        sessionToken ? "present" : "missing",
       );
       if (!sessionToken) {
         console.log("[useAuth] No session token, setting user to null");
@@ -91,10 +91,16 @@ export function useAuth(options?: UseAuthOptions) {
       await Auth.clearUserInfo();
       setUser(null);
       setError(null);
+      Auth.notifyAuthChanged();
     }
   }, []);
 
   const isAuthenticated = useMemo(() => Boolean(user), [user]);
+
+  useEffect(() => {
+    if (!autoFetch) return;
+    return Auth.subscribeAuthChanges(() => { void fetchUser(); });
+  }, [autoFetch, fetchUser]);
 
   useEffect(() => {
     console.log("[useAuth] useEffect triggered, autoFetch:", autoFetch, "platform:", Platform.OS);
