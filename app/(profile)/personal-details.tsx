@@ -4,6 +4,8 @@ import { router, useNavigation, useFocusEffect } from "expo-router";
 import { usePreventRemove } from "@react-navigation/native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useAuth } from "@/hooks/use-auth";
+import * as Auth from "@/lib/_core/auth";
+import { profileLoadError } from "@/lib/profile-load-error";
 import { activeCalorieTarget, calculateBMI, calculateCalorieEstimate, displayMeasurement, loadCachedProfilePreferences, loadProfilePreferences, parseMeasurement, saveProfilePreferences, validatePersonalDetails, type ProfilePreferences } from "@/lib/profile-preferences";
 
 export default function PersonalDetailsScreen() {
@@ -23,6 +25,7 @@ function DetailsForm({ userKey }: { userKey: string }) {
   const [saving, setSaving] = useState(false);
   const [revision, setRevision] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [requiresSignIn, setRequiresSignIn] = useState(false);
   const mounted = useRef(true);
   const dirtyRef = useRef(false);
   useFocusEffect(useCallback(() => {
@@ -32,12 +35,11 @@ function DetailsForm({ userKey }: { userKey: string }) {
     let active = true;
     setLoading(true);
     setMessage("");
+    setRequiresSignIn(false);
     void (async () => {
-      let hasCachedProfile = false;
       try {
         const cached = await loadCachedProfilePreferences(userKey);
         if (cached && active && !dirtyRef.current) {
-          hasCachedProfile = true;
           setProfile(cached);
           setSaved(JSON.stringify(cached));
           setLoading(false);
@@ -46,12 +48,22 @@ function DetailsForm({ userKey }: { userKey: string }) {
       try {
         const fresh = await loadProfilePreferencesWithTimeout(userKey);
         if (active && !dirtyRef.current) { setProfile(fresh); setSaved(JSON.stringify(fresh)); }
-      } catch {
-        if (active && !hasCachedProfile) setMessage("Could not load your details. Check your connection and retry.");
+      } catch (error) {
+        if (active) {
+          const failure = profileLoadError(error);
+          setMessage(failure.message);
+          setRequiresSignIn(failure.requiresSignIn);
+        }
       } finally { if (active) setLoading(false); }
     })();
     return () => { active = false; mounted.current = false; };
   }, [userKey, revision]));
+  const signInAgain = async () => {
+    await Auth.removeSessionToken();
+    await Auth.clearUserInfo();
+    router.replace("/login");
+    Auth.notifyAuthChanged();
+  };
   const dirty = Boolean(profile && (JSON.stringify(profile) !== saved || Object.keys(numbers).length));
   dirtyRef.current = dirty;
   usePreventRemove(dirty || saving, ({ data }) => {
@@ -69,7 +81,7 @@ function DetailsForm({ userKey }: { userKey: string }) {
   if (!profile) return <ScreenContainer className="px-5 pt-4"><View style={styles.loadState}>
     {loading ? <ActivityIndicator accessibilityLabel="Loading Personal Details" color="#B8F36B" size="large" /> : null}
     <Text style={styles.copy}>{message || "Loading Personal Details..."}</Text>
-    {!loading && message ? <View style={styles.loadActions}><Pressable onPress={() => setRevision((value) => value + 1)}><Text style={styles.link}>Retry</Text></Pressable><Pressable onPress={() => router.back()}><Text style={styles.link}>Back</Text></Pressable></View> : null}
+    {!loading && message ? <View style={styles.loadActions}>{requiresSignIn ? <Pressable onPress={() => void signInAgain()}><Text style={styles.link}>Sign in again</Text></Pressable> : <Pressable onPress={() => setRevision((value) => value + 1)}><Text style={styles.link}>Retry</Text></Pressable>}<Pressable onPress={() => router.canGoBack() ? router.back() : router.replace("/(profile)/profile")}><Text style={styles.link}>Back</Text></Pressable></View> : null}
   </View></ScreenContainer>;
   const imperial = profile.unitSystem === "imperial";
   const draft = { ...profile };
@@ -114,6 +126,7 @@ function DetailsForm({ userKey }: { userKey: string }) {
       <Text style={styles.value}>Active target: {activeCalorieTarget(draft) ?? "--"} kcal/day</Text>{errors.calorieTargetMode && <Text style={styles.error}>{errors.calorieTargetMode}</Text>}<Text style={styles.copy}>A starting estimate; actual needs vary. Review it with your progress, energy and professional advice.</Text></Card>
     <Text accessibilityLiveRegion="polite" style={styles.link}>{saving ? "Saving..." : dirty ? "Unsaved changes" : message === "Personal Details saved." ? message : "No unsaved changes"}</Text>
     {message && message !== "Personal Details saved." ? <Text accessibilityRole="alert" style={styles.error}>{message}</Text> : null}
+    {requiresSignIn ? <Pressable onPress={() => void signInAgain()}><Text style={styles.link}>Sign in again</Text></Pressable> : null}
     <Pressable accessibilityRole="button" disabled={saving || !dirty} style={[styles.save, (saving || !dirty) && { opacity: 0.5 }]} onPress={() => void save()}><Text style={styles.saveText}>{saving ? "Saving..." : "Save"}</Text></Pressable>
   </ScrollView></ScreenContainer>;
 }
