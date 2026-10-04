@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { onboardingSchema, type OnboardingPreferences } from "./onboarding";
 import { DEFAULT_USER_SETTINGS, userSettingsSchema, type UserSettings } from "./settings-preferences";
 export { DEFAULT_USER_SETTINGS, userSettingsSchema } from "./settings-preferences";
 export type { UserSettings } from "./settings-preferences";
@@ -16,6 +17,7 @@ export type CalorieTargetMode = "selected" | "estimated";
 /** Basic information. The current app records age rather than date of birth. */
 export interface BasicInformationSettings {
   name: string;
+  onboarding?: OnboardingPreferences;
   /** Whole years; validated from 18 to 120. */
   age?: number;
   /** Sex used by the calorie-estimation formula. */
@@ -193,6 +195,7 @@ export function profileCoachContext(profile: ProfilePreferences) {
 
 const optionalText = z.string().max(1000).optional();
 export const personalDetailsSchema = z.object({
+  onboarding: onboardingSchema.optional(),
   name: z.string().trim().min(1, "Enter your name.").max(120),
   goal: z.enum(["Lose fat", "Build strength", "Improve fitness", "Maintain health"]),
   foodPreference: z.enum(["No preference", "Vegetarian", "High-protein"]),
