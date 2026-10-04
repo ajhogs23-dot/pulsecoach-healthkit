@@ -6,6 +6,7 @@ import type { Request } from "express";
 import { SignJWT, jwtVerify } from "jose";
 import type { User } from "../../drizzle/schema";
 import * as db from "../db";
+import { getAccountGeneration } from "../account-deactivation";
 import { ENV } from "./env";
 import type {
   ExchangeTokenRequest,
@@ -22,6 +23,7 @@ export type SessionPayload = {
   openId: string;
   appId: string;
   name: string;
+  accountGeneration?: string;
 };
 
 const EXCHANGE_TOKEN_PATH = `/webdev.v1.WebDevAuthPublicService/ExchangeToken`;
@@ -149,9 +151,12 @@ class SDKServer {
     openId: string,
     options: { expiresInMs?: number; name?: string } = {},
   ): Promise<string> {
+    const accountUser = await db.getUserByOpenId(openId);
+    const accountGeneration = accountUser ? await getAccountGeneration(accountUser.id) : "";
     return this.signSession(
       {
         openId,
+        accountGeneration,
         appId: ENV.appId,
         name: options.name || "",
       },
@@ -169,6 +174,7 @@ class SDKServer {
     const secretKey = this.getSessionSecret();
 
     return new SignJWT({
+      accountGeneration: payload.accountGeneration ?? "",
       openId: payload.openId,
       appId: payload.appId,
       name: payload.name,
@@ -180,7 +186,7 @@ class SDKServer {
 
   async verifySession(
     cookieValue: string | undefined | null,
-  ): Promise<{ openId: string; appId: string; name: string } | null> {
+  ): Promise<{ openId: string; appId: string; name: string; accountGeneration: string } | null> {
     if (!cookieValue) {
       console.warn("[Auth] Missing session cookie");
       return null;
@@ -199,6 +205,7 @@ class SDKServer {
       }
 
       return {
+        accountGeneration: typeof payload.accountGeneration === "string" ? payload.accountGeneration : "",
         openId,
         appId,
         name,
@@ -285,12 +292,16 @@ class SDKServer {
       throw ForbiddenError("User not found");
     }
 
+    const accountGeneration = await getAccountGeneration(user.id);
+    if (session.accountGeneration !== accountGeneration) throw ForbiddenError("This profile was deactivated. Sign in to start fresh.");
+
     await db.upsertUser({
       openId: user.openId,
       lastSignedIn: signedInAt,
     });
 
-    return user;
+    if (await getAccountGeneration(user.id) !== session.accountGeneration) throw ForbiddenError("This profile was deactivated. Sign in to start fresh.");
+    return { ...user, accountGeneration };
   }
 }
 
@@ -298,6 +309,7 @@ const CRON_OPEN_ID_PREFIX = "cron_";
 
 /** Result of `sdk.authenticateRequest`. Cron callbacks set `isCron=true` and `taskUid`; see `/home/ubuntu/skills/webdev-periodic-updates/SKILL.md`. */
 export type AuthenticatedUser = User & {
+  accountGeneration?: string;
   taskUid?: string;
   isCron?: boolean;
 };

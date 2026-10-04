@@ -17,7 +17,7 @@ export function registerOAuthRoutes(app: Express) {
     try {
       const user = await sdk.authenticateRequest(req);
       res.json({ user: { id: user.id, openId: user.openId, name: user.name, email: user.email,
-        loginMethod: user.loginMethod, lastSignedIn: user.lastSignedIn.toISOString() } });
+        loginMethod: user.loginMethod, accountGeneration: user.accountGeneration, lastSignedIn: user.lastSignedIn.toISOString() } });
     } catch {
       res.status(401).json({ error: "Not authenticated", user: null });
     }

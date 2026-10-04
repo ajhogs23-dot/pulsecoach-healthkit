@@ -1,4 +1,6 @@
 import { personalDetailsSchema, legacyPersonalDetailsSchema, validatePersonalDetails, profileCoachContext } from "../shared/personal-details";
+import { deactivateAccount } from "./account-deactivation";
+import { COOKIE_NAME } from "../shared/const";
 import { z } from "zod";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
@@ -20,6 +22,11 @@ export const appRouter = router({
   system: systemRouter,
   auth: router({
     me: publicProcedure.query((opts) => opts.ctx.user),
+    deactivate: protectedProcedure.input(z.object({ confirmation: z.literal("CLEAR_MY_PROFILE") }).strict()).mutation(async ({ ctx }) => {
+      const result = await deactivateAccount(ctx.user.id, ctx.user.accountGeneration ?? "");
+      ctx.res.clearCookie(COOKIE_NAME, getSessionCookieOptions(ctx.req));
+      return result;
+    }),
     logout: publicProcedure.mutation(({ ctx }) => {
       const cookieOptions = getSessionCookieOptions(ctx.req);
       ctx.res.clearCookie("session", { ...cookieOptions, maxAge: -1 });
