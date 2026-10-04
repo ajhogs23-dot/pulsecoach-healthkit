@@ -1,3 +1,5 @@
+import type { GymSearchSource, ExternalGymSearchResult } from "../shared/gym-search-types";
+export type { GymSearchOptions, ExternalGymSearchResult, GymSearchProvider } from "../shared/gym-search-types";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { ExerciseLibraryItem } from "./exercise-library";
 import { EXERCISE_LIBRARY } from "./exercise-library";
@@ -9,7 +11,7 @@ export type ResistanceUnit = "kilograms" | "pounds" | "plates" | "resistance lev
 export type Gym = {
   id: string; name: string; normalisedName: string; streetAddress: string; suburb: string; state: string;
   postcode: string; country: string; latitude?: number; longitude?: number; distanceKm?: number; phone?: string; website?: string;
-  externalProvider?: "google-places"; externalPlaceId?: string;
+  externalProvider?: GymSearchSource; externalPlaceId?: string;
   createdBy: "community" | "gym"; createdAt: string; lastConfirmedAt?: string; verificationStatus: VerificationStatus;
 };
 export type GenericEquipmentType = {
@@ -42,13 +44,10 @@ export type GymRepository = {
   queueOffline(item: { kind: "confirmation" | "status-report"; payload: EquipmentConfirmation | EquipmentStatusReport }): Promise<void>;
 };
 
-export type GymSearchOptions = { latitude?: number; longitude?: number; pageToken?: string; signal?: AbortSignal };
-export type ExternalGymSearchResult = { provider: "google-places"; placeId: string; name: string; formattedAddress: string; suburb?: string; state?: string; postcode?: string; country?: string; latitude?: number; longitude?: number; primaryType?: string; businessStatus?: string; distanceKm?: number };
 export type GymSearchResponse = { results: Array<{ source: "saved" | "external"; gym?: Gym; external?: ExternalGymSearchResult; savedMatch?: Gym }>; nextPageToken?: string; liveStatus: "configured" | "unconfigured" | "offline" | "error" };
-export type GymSearchProvider = { search(query: string, options?: GymSearchOptions): Promise<{ results: ExternalGymSearchResult[]; nextPageToken?: string; status?: GymSearchResponse["liveStatus"] }> };
 
 export function mergeGymSearchResults(saved: Gym[], external: ExternalGymSearchResult[]): GymSearchResponse["results"] {
-  const byPlace = new Map(saved.filter((gym) => gym.externalProvider === "google-places" && gym.externalPlaceId).map((gym) => [`${gym.externalProvider}:${gym.externalPlaceId}`, gym]));
+  const byPlace = new Map(saved.filter((gym) => gym.externalProvider && gym.externalPlaceId).map((gym) => [`${gym.externalProvider}:${gym.externalPlaceId}`, gym]));
   const results: GymSearchResponse["results"] = saved.map((gym) => ({ source: "saved", gym }));
   for (const item of external) {
     const identity = byPlace.get(`${item.provider}:${item.placeId}`);

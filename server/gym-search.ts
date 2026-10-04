@@ -1,4 +1,4 @@
-import type { ExternalGymSearchResult, GymSearchProvider } from "../lib/gym-directory";
+import type { ExternalGymSearchResult, GymSearchProvider } from "../shared/gym-search-types";
 
 type PlacesResponse = { places?: Array<{ id?: string; displayName?: { text?: string }; formattedAddress?: string; location?: { latitude?: number; longitude?: number }; primaryType?: string; businessStatus?: string }>; nextPageToken?: string };
 

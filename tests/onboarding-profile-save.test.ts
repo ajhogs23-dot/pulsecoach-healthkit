@@ -9,7 +9,7 @@ const caller=()=>appRouter.createCaller({user:{id:7,openId:"test:7",name:"Test",
 beforeEach(()=>{mock.save.mockReset();mock.save.mockImplementation(async(_id,_name,details)=>details);});
 describe("onboarding profile API",()=>{
   it("saves setup without an unrecognized onboarding key and retains multiple goals and consent",async()=>{
-    const onboarding={...DEFAULT_ONBOARDING,completed:true,dateOfBirth:"1994-05-01",fitnessGoals:["Build muscle","Improve endurance"] as const,injuries:["Knees"] as const,injuryNotes:"Limited ankle movement",otherSupplements:["Magnesium"],termsAcceptance:{version:"test-2026-10-05",acceptedAt:"2026-10-05T00:00:00.000Z"}};
+    const onboarding={...DEFAULT_ONBOARDING,completed:true,dateOfBirth:"1994-05-01",fitnessGoals:["Build muscle","Improve endurance"] as const,workoutStyles:["Strength training","Cardio focus"] as typeof DEFAULT_ONBOARDING.workoutStyles,injuries:["Knees"] as const,injuryNotes:"Limited ankle movement",otherSupplements:["Magnesium"],termsAcceptance:{version:"test-2026-10-05",acceptedAt:"2026-10-05T00:00:00.000Z"}};
     const result=await caller().profile.savePersonalDetails({...DEFAULT_PROFILE_PREFERENCES,name:"Test",onboarding:{...onboarding,fitnessGoals:[...onboarding.fitnessGoals],injuries:[...onboarding.injuries]}});
     expect(result.onboarding).toEqual(onboarding);expect(mock.save).toHaveBeenCalledWith(7,"Test",expect.objectContaining({onboarding}));
   });
