@@ -4,6 +4,7 @@ import {DEFAULT_ONBOARDING} from "../shared/onboarding";
 import type {TrpcContext} from "../server/_core/context";
 const mock=vi.hoisted(()=>({save:vi.fn(),get:vi.fn()}));
 vi.mock("../server/db",()=>({savePersonalDetails:mock.save,getPersonalDetails:mock.get}));
+vi.mock("../server/account-deactivation",()=>({guardAccountMutation:async(_id:number,_generation:string,action:()=>Promise<unknown>)=>action()}));
 import {appRouter} from "../server/routers";
 const caller=()=>appRouter.createCaller({user:{id:7,openId:"test:7",name:"Test",role:"user"},req:{},res:{}} as TrpcContext);
 beforeEach(()=>{mock.save.mockReset();mock.save.mockImplementation(async(_id,_name,details)=>details);});

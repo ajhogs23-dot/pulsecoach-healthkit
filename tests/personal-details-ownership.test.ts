@@ -4,6 +4,7 @@ import type { TrpcContext } from "../server/_core/context";
 const mocks = vi.hoisted(() => ({ get: vi.fn(), save: vi.fn(), llm: vi.fn() }));
 vi.mock("../server/db", () => ({ getPersonalDetails: mocks.get, savePersonalDetails: mocks.save }));
 vi.mock("../server/_core/llm", () => ({ invokeLLM: mocks.llm }));
+vi.mock("../server/account-deactivation",()=>({guardAccountMutation:async(_id:number,_generation:string,action:()=>Promise<unknown>)=>action()}));
 import { appRouter } from "../server/routers";
 const detail = { ...DEFAULT_PROFILE_PREFERENCES, name: "Private Sam", allergies: "Peanuts", calorieTarget: 2300 };
 function caller(id: number | null) {

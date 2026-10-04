@@ -1,6 +1,7 @@
 import { NOT_ADMIN_ERR_MSG, UNAUTHED_ERR_MSG } from "../../shared/const.js";
 import { initTRPC, TRPCError } from "@trpc/server";
 import superjson from "superjson";
+import { guardAccountMutation } from "../account-deactivation";
 import type { TrpcContext } from "./context";
 
 const t = initTRPC.context<TrpcContext>().create({
@@ -25,7 +26,11 @@ const requireUser = t.middleware(async (opts) => {
   });
 });
 
-export const protectedProcedure = t.procedure.use(requireUser);
+export const protectedProcedure = t.procedure.use(requireUser).use(async ({ ctx, next, type, path }) => {
+  const savesPersonalData = /^(profile|goals|feedback|contributions|equipmentReports)\./.test(path);
+  if (type !== "mutation" || !savesPersonalData) return next();
+  return guardAccountMutation(ctx.user.id, ctx.user.accountGeneration ?? "", () => next());
+});
 
 export const adminProcedure = t.procedure.use(
   t.middleware(async (opts) => {
