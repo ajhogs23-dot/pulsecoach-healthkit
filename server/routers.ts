@@ -6,7 +6,7 @@ import { adminProcedure, protectedProcedure, publicProcedure, router } from "./_
 import * as db from "./db";
 import { resolveProduct } from "./catalog";
 import { invokeLLM } from "./_core/llm";
-import { GooglePlacesGymSearchProvider } from "./gym-search";
+import { PublicGymSearchProvider } from "./public-gym-search";
 
 const coachSystemPrompt = `You are VELTURA, a warm and practical wellness coach. Give concise, actionable general wellness guidance about food, exercise, movement, hydration, recovery, and habits. Never diagnose, prescribe, promise results, or give unsafe medical advice. Do not encourage extreme calorie restriction, eating-disorder behaviors, dangerous exercise, or training through pain. Ask a brief clarifying question when allergies, injuries, pregnancy, medication, or a medical condition could change the answer. Use the user's goals, preferences, equipment, time, and available health context, but never invent missing measurements or health data. Offer substitutions and explain the reasoning in plain language.`;
 
@@ -69,7 +69,7 @@ export const appRouter = router({
     }),
   }),
   gym: router({
-    search: protectedProcedure.input(z.object({ query: z.string().trim().min(2).max(160), latitude: z.number().optional(), longitude: z.number().optional(), pageToken: z.string().max(512).optional() })).query(async ({ input }) => new GooglePlacesGymSearchProvider().search(input.query, input)),
+    search: protectedProcedure.input(z.object({ query: z.string().trim().min(2).max(160), latitude: z.number().min(-90).max(90).optional(), longitude: z.number().min(-180).max(180).optional(), pageToken: z.string().max(512).optional() })).query(async ({ input }) => new PublicGymSearchProvider().search(input.query, input)),
   }),
   profile: router({
     personalDetails: protectedProcedure.query(async ({ ctx }) => { const { details, migrated } = await db.getPersonalDetails(ctx.user.id, ctx.user.name); return { details, migrated }; }),

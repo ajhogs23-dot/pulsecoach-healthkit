@@ -23,13 +23,13 @@ export const onboardingSchema = z.object({
   experience: z.enum(["Beginner", "Intermediate", "Advanced"]), gymAccess: z.enum(["Yes", "No", "Home gym only"]),
   measurements: z.object({ waist: z.number().positive().max(300).optional(), hips: z.number().positive().max(300).optional(), chest: z.number().positive().max(300).optional(), arms: z.number().positive().max(150).optional(), thighs: z.number().positive().max(150).optional() }).strict().default({}),
   nutrition: z.array(z.enum(NUTRITION_OPTIONS)).max(8), intolerances: z.string().max(1000).default(""), religiousRestrictions: z.string().max(1000).default(""),
-  timeline: z.enum(["4 weeks", "8 weeks", "12 weeks", "Ongoing"]), workoutStyle: z.enum(WORKOUT_STYLES),
+  timeline: z.enum(["4 weeks", "8 weeks", "12 weeks", "Ongoing"]), workoutStyle: z.enum(WORKOUT_STYLES), workoutStyles: z.array(z.enum(WORKOUT_STYLES)).max(7).default([]),
   trainingDays: z.array(z.enum(DAYS)).max(7), injuries: z.array(z.enum(INJURIES)).max(INJURIES.length), injuryNotes: z.string().max(600).default(""), supplements: z.array(z.enum(SUPPLEMENTS)).max(SUPPLEMENTS.length), otherSupplements: z.array(z.string().trim().min(1).max(100)).max(20).default([]),
   stepReminders: z.boolean().default(false), waterReminders: z.boolean().default(false),
   syncPreferences: z.array(z.enum(["Apple Health", "Google Fit", "Fitbit"])).max(3).default([]),
 }).strict();
 export type OnboardingPreferences = z.infer<typeof onboardingSchema>;
-export const DEFAULT_ONBOARDING: OnboardingPreferences = {completed:false,dateOfBirth:"",phone:"",fitnessGoal:"General health",fitnessGoals:["General health"],activity:"Moderately active",experience:"Beginner",gymAccess:"Yes",measurements:{},nutrition:["Balanced"],intolerances:"",religiousRestrictions:"",timeline:"Ongoing",workoutStyle:"Strength training",trainingDays:[],injuries:["None"],injuryNotes:"",supplements:["None"],otherSupplements:[],stepReminders:false,waterReminders:false,syncPreferences:[]};
+export const DEFAULT_ONBOARDING: OnboardingPreferences = {completed:false,dateOfBirth:"",phone:"",fitnessGoal:"General health",fitnessGoals:["General health"],activity:"Moderately active",experience:"Beginner",gymAccess:"Yes",measurements:{},nutrition:["Balanced"],intolerances:"",religiousRestrictions:"",timeline:"Ongoing",workoutStyle:"Strength training",workoutStyles:["Strength training"],trainingDays:[],injuries:["None"],injuryNotes:"",supplements:["None"],otherSupplements:[],stepReminders:false,waterReminders:false,syncPreferences:[]};
 export function toggleExclusiveNone(values: string[], value: string) {
   if(value === "None") return ["None"];
   const next=values.filter(v=>v!=="None");
