@@ -60,7 +60,10 @@ export async function deactivateAccount(userId: number, expectedGeneration = "")
         await transaction.execute(sql`DELETE FROM ${sql.identifier(child)} WHERE ${sql.identifier(foreignKey)} IN (SELECT id FROM ${sql.identifier(parent)} WHERE ${sql.identifier(owner)} = ${userId})`);
       }
     }
+    if (tables.has("activity_circle_cheers") && tables.has("activity_circle_posts")) await transaction.execute(sql`DELETE c FROM activity_circle_cheers c JOIN activity_circle_posts p ON p.id = c.postId WHERE p.ownerId = ${userId}`);
+    if (tables.has("activity_circle_friends")) await transaction.execute(sql`DELETE FROM activity_circle_friends WHERE userLow = ${userId} OR userHigh = ${userId}`);
     const owned: Array<[string, string]> = [
+      ["activity_circle_codes", "userId"], ["activity_circle_cheers", "userId"], ["activity_circle_posts", "ownerId"],
       ["profiles", "userId"], ["goals", "userId"], ["privacy_settings", "userId"],
       ["health_permissions", "userId"], ["workout_plans", "userId"], ["routes", "userId"],
       ["workout_sessions", "userId"], ["activity_summaries", "userId"], ["meals", "userId"],
