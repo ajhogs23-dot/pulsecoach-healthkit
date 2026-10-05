@@ -18,8 +18,11 @@ function responseText(content: unknown) {
   return "I’m sorry, I couldn’t form a response just now. Try asking again.";
 }
 
+import { activityCircleRouter } from "./activity-circle-router";
+
 export const appRouter = router({
   system: systemRouter,
+  activityCircle: activityCircleRouter,
   auth: router({
     me: publicProcedure.query((opts) => opts.ctx.user),
     deactivate: protectedProcedure.input(z.object({ confirmation: z.literal("CLEAR_MY_PROFILE") }).strict()).mutation(async ({ ctx }) => {

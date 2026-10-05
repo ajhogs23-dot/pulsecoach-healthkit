@@ -27,7 +27,7 @@ const requireUser = t.middleware(async (opts) => {
 });
 
 export const protectedProcedure = t.procedure.use(requireUser).use(async ({ ctx, next, type, path }) => {
-  const savesPersonalData = /^(profile|goals|feedback|contributions|equipmentReports)\./.test(path);
+  const savesPersonalData = /^(profile|goals|feedback|contributions|equipmentReports|activityCircle)\./.test(path);
   if (type !== "mutation" || !savesPersonalData) return next();
   return guardAccountMutation(ctx.user.id, ctx.user.accountGeneration ?? "", () => next());
 });
