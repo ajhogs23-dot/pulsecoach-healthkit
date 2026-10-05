@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 export type VisibilityScope = "friends" | "local" | "state" | "national" | "global";
+export type LeaderboardAudience = "private" | VisibilityScope;
 export type DistanceUnit = "kilometres" | "miles";
 export type WeightUnit = "kilograms" | "pounds";
 export type HeightUnit = "centimetres" | "feet-inches";
@@ -32,7 +33,7 @@ export interface UnitsSettings { distance: DistanceUnit; weight: WeightUnit; hei
 export interface WorkoutSettings { autoStartDetection: boolean; autoPause: boolean; voiceFeedback: boolean; audioLanguage: string; musicPriority: "workout" | "music"; captions: boolean; hapticFeedback: boolean; metrics: { [key: string]: boolean; heartRate: boolean; pace: boolean; distance: boolean; calories: boolean; cadence: boolean; elevation: boolean; burnBar: boolean }; equipment: { treadmill?: string; rowingMachine?: string; exerciseBike?: string; stairClimber?: string; availability?: string; homeGym?: string; currentWorkoutGym?: string; }; }
 export interface WellnessSettings { sleep: boolean; nutrition: boolean; mindfulness: boolean; }
 export interface CoachingAISettings { adaptiveTraining: boolean; difficultyAutoAdjustment: boolean; injuryRecoveryMode: boolean; aiNutritionSuggestions: boolean; aiSleepOptimisation: boolean; weeklyTrainingPlan: boolean; preferredWorkoutTypes?: string; preferredTrainers?: string; coachingStyle?: string; humourLevel?: string; musicGenres?: string; equipmentAvailability?: string; }
-export interface SocialCommunitySettings { friendsAndGroups: boolean; blockedUsers?: string; groupVisibility: VisibilityScope; challengeParticipation: boolean; leaderboardPrivacy: boolean; automaticallyShareWorkouts: boolean; shareAchievements: boolean; shareRoutes: boolean; visibility: Record<VisibilityScope, boolean>; }
+export interface SocialCommunitySettings { friendsAndGroups: boolean; blockedUsers?: string; groupVisibility: VisibilityScope[]; challengeParticipation: boolean; leaderboardPrivacy: LeaderboardAudience[]; automaticallyShareWorkouts: boolean; shareAchievements: boolean; shareRoutes: boolean; visibility: Record<VisibilityScope, boolean>; }
 export interface NotificationSettings { workoutNotifications: boolean; healthNotifications: boolean; mealLoggingReminders: boolean; motivationalMessages: boolean; appNotifications: boolean; }
 export interface PrivacyPermissionsSettings { activityTracking: boolean; foregroundLocation: boolean; heartRateAccess: boolean; sleepTracking: boolean; menstrualCycleTracking: boolean; stressSpO2EcgAccess: boolean; appleHealth: boolean; androidHealth: boolean; wearableSync: boolean; connectedApps?: string; publicProfile: boolean; leaderboardVisibility: boolean; routeSharing: boolean; friendDiscovery: boolean; }
 export interface AppSettings { theme: "system" | "light" | "dark"; textSize: "standard" | "large" | "extra-large"; reducedMotion: boolean; highContrast: boolean; screenReaderImprovements: boolean; language: string; offlineData: boolean; cacheManagement: "automatic" | "manual"; diagnostics: boolean; }
@@ -44,11 +45,31 @@ export const DEFAULT_USER_SETTINGS: UserSettings = {
   workout: { autoStartDetection: false, autoPause: true, voiceFeedback: false, audioLanguage: "English", musicPriority: "workout", captions: true, hapticFeedback: true, metrics: { heartRate: true, pace: true, distance: true, calories: true, cadence: false, elevation: false, burnBar: false }, equipment: {} },
   wellness: { sleep: true, nutrition: true, mindfulness: false },
   coachingAI: { adaptiveTraining: true, difficultyAutoAdjustment: true, injuryRecoveryMode: false, aiNutritionSuggestions: true, aiSleepOptimisation: true, weeklyTrainingPlan: true },
-  socialCommunity: { friendsAndGroups: true, groupVisibility: "friends", challengeParticipation: true, leaderboardPrivacy: true, automaticallyShareWorkouts: false, shareAchievements: false, shareRoutes: false, visibility: { friends: false, local: false, state: false, national: false, global: false } },
+  socialCommunity: { friendsAndGroups: true, groupVisibility: ["friends"], challengeParticipation: true, leaderboardPrivacy: ["private"], automaticallyShareWorkouts: false, shareAchievements: false, shareRoutes: false, visibility: { friends: false, local: false, state: false, national: false, global: false } },
   notifications: { workoutNotifications: true, healthNotifications: true, mealLoggingReminders: false, motivationalMessages: true, appNotifications: true },
   privacyPermissions: { activityTracking: false, foregroundLocation: false, heartRateAccess: false, sleepTracking: false, menstrualCycleTracking: false, stressSpO2EcgAccess: false, appleHealth: false, androidHealth: false, wearableSync: false, publicProfile: false, leaderboardVisibility: false, routeSharing: false, friendDiscovery: false },
   app: { theme: "system", textSize: "standard", reducedMotion: false, highContrast: false, screenReaderImprovements: true, language: "English", offlineData: true, cacheManagement: "automatic", diagnostics: false },
 };
+
+const visibilityScopeSchema = z.enum(["friends", "local", "state", "national", "global"]);
+const groupVisibilitySchema = z.union([z.array(visibilityScopeSchema).max(5), visibilityScopeSchema])
+  .transform((value): VisibilityScope[] => [...new Set(Array.isArray(value) ? value : [value])]);
+const leaderboardAudienceSchema = z.enum(["private", "friends", "local", "state", "national", "global"]);
+const leaderboardPrivacySchema = z.union([z.array(leaderboardAudienceSchema).max(6), leaderboardAudienceSchema, z.boolean()])
+  .transform((value): LeaderboardAudience[] => {
+    const selected = typeof value === "boolean" ? (value ? ["private" as const] : ["friends" as const]) : Array.isArray(value) ? value : [value];
+    return selected.length === 0 || selected.includes("private") ? ["private"] : [...new Set(selected)];
+  });
+
+/** Retain older single choices and boolean privacy settings when loading a profile. */
+export function normalizeSocialAudiences(settings: UserSettings): UserSettings {
+  const group = groupVisibilitySchema.safeParse(settings.socialCommunity.groupVisibility);
+  const leaderboard = leaderboardPrivacySchema.safeParse(settings.socialCommunity.leaderboardPrivacy);
+  return { ...settings, socialCommunity: { ...settings.socialCommunity,
+    groupVisibility: group.success ? group.data : ["friends"],
+    leaderboardPrivacy: leaderboard.success ? leaderboard.data : ["private"],
+  } };
+}
 
 const text = z.string().max(1000).optional();
 export const userSettingsSchema = z.object({
@@ -58,7 +79,7 @@ export const userSettingsSchema = z.object({
   workout: z.object({ autoStartDetection: z.boolean(), autoPause: z.boolean(), voiceFeedback: z.boolean(), audioLanguage: z.string().max(80), musicPriority: z.enum(["workout", "music"]), captions: z.boolean(), hapticFeedback: z.boolean(), metrics: z.record(z.string(), z.boolean()), equipment: z.record(z.string(), text) }).strict(),
   wellness: z.object({ sleep: z.boolean(), nutrition: z.boolean(), mindfulness: z.boolean() }).strict(),
   coachingAI: z.object({ adaptiveTraining: z.boolean(), difficultyAutoAdjustment: z.boolean(), injuryRecoveryMode: z.boolean(), aiNutritionSuggestions: z.boolean(), aiSleepOptimisation: z.boolean(), weeklyTrainingPlan: z.boolean(), preferredWorkoutTypes: text, preferredTrainers: text, coachingStyle: text, humourLevel: text, musicGenres: text, equipmentAvailability: text }).strict(),
-  socialCommunity: z.object({ friendsAndGroups: z.boolean(), blockedUsers: text, groupVisibility: z.enum(["friends", "local", "state", "national", "global"]), challengeParticipation: z.boolean(), leaderboardPrivacy: z.boolean(), automaticallyShareWorkouts: z.boolean(), shareAchievements: z.boolean(), shareRoutes: z.boolean(), visibility: z.object({ friends: z.boolean(), local: z.boolean(), state: z.boolean(), national: z.boolean(), global: z.boolean() }).strict() }).strict(),
+  socialCommunity: z.object({ friendsAndGroups: z.boolean(), blockedUsers: text, groupVisibility: groupVisibilitySchema, challengeParticipation: z.boolean(), leaderboardPrivacy: leaderboardPrivacySchema, automaticallyShareWorkouts: z.boolean(), shareAchievements: z.boolean(), shareRoutes: z.boolean(), visibility: z.object({ friends: z.boolean(), local: z.boolean(), state: z.boolean(), national: z.boolean(), global: z.boolean() }).strict() }).strict(),
   notifications: z.object({ workoutNotifications: z.boolean(), healthNotifications: z.boolean(), mealLoggingReminders: z.boolean(), motivationalMessages: z.boolean(), appNotifications: z.boolean() }).strict(),
   privacyPermissions: z.object({ activityTracking: z.boolean(), foregroundLocation: z.boolean(), heartRateAccess: z.boolean(), sleepTracking: z.boolean(), menstrualCycleTracking: z.boolean(), stressSpO2EcgAccess: z.boolean(), appleHealth: z.boolean(), androidHealth: z.boolean(), wearableSync: z.boolean(), connectedApps: text, publicProfile: z.boolean(), leaderboardVisibility: z.boolean(), routeSharing: z.boolean(), friendDiscovery: z.boolean() }).strict(),
   app: z.object({ theme: z.enum(["system", "light", "dark"]), textSize: z.enum(["standard", "large", "extra-large"]), reducedMotion: z.boolean(), highContrast: z.boolean(), screenReaderImprovements: z.boolean(), language: z.string().max(80), offlineData: z.boolean(), cacheManagement: z.enum(["automatic", "manual"]), diagnostics: z.boolean() }).strict(),
