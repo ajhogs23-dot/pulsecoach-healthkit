@@ -1,3 +1,4 @@
+import { invokeCoachLLM } from "./coach-gemini";
 import { personalDetailsSchema, legacyPersonalDetailsSchema, validatePersonalDetails, profileCoachContext } from "../shared/personal-details";
 import { deactivateAccount } from "./account-deactivation";
 import { COOKIE_NAME } from "../shared/const";
@@ -131,7 +132,7 @@ export const appRouter = router({
         input.equipment ? `Equipment: ${input.equipment}` : "",
         input.healthContext ? `Available health context: ${input.healthContext}` : "",
       ].filter(Boolean).join("\n");
-      const response = await invokeLLM({
+      const response = await invokeCoachLLM({
         model: "gpt-5-mini",
         reasoning: { effort: "low" },
         maxTokens: 450,
